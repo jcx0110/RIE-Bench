@@ -1,173 +1,101 @@
-# LoTa-Bench: Benchmarking Language-oriented Task Planners for Embodied Agents
+# REI-Bench: Can Embodied Agents Understand Vague Human Instructions in Task Planning?
 
-### [Paper (ICLR 2024)](https://arxiv.org/abs/2402.08178) | [Project Page](https://choi-jaewoo.github.io/LoTa-Bench/)
+This repository is the **official evaluation codebase** for **REI-Bench**, from the paper **REI-Bench: Can Embodied Agents Understand Vague Human Instructions in Task Planning?** (under review at **ICLR 2026**). REI-Bench is an evaluation benchmark for embodied task planners under **referential and coreferential vagueness** in natural language instructions. This repo provides evaluation-only code; evaluation data is obtained separately. The paper also proposes **TOCC** (Task-Oriented Cognitive Control) as an optional method, supported in this codebase.
 
-[Jae-Woo Choi](https://choi-jaewoo.github.io/)<sup>1*</sup>, [Youngwoo Yoon](https://sites.google.com/view/youngwoo-yoon/)<sup>1*</sup>, Hyobin Ong<sup>1, 2</sup>, Jaehong Kim<sup>1</sup>, Minsu Jang<sup>1, 2</sup> (*equal contribution)
+## 🤖 Authors
 
-<sup>1</sup> Electronics and Telecommunications Research Institute, <sup>2</sup> University of Science and Technology 
+See the paper for the full list of authors.  
+**MARS Lab**, Nanyang Technological University (NTU)
 
-We introduce a system for automatically quantifying performance of task planning for home-service agents. Task planners are tested on two pairs of datasets and simulators: 1) [ALFRED](https://github.com/askforalfred/alfred) and [AI2-THOR](https://ai2thor.allenai.org/), 2) an extension of [Watch-And-Help](https://github.com/xavierpuigf/watch_and_help) and [VirtualHome](http://virtual-home.org/). Using the proposed benchmark system, we perform extensive experiments with LLMs and prompts, and explore several extentions of the baseline planner.
+## 🧭 Introduction
 
-## Environment
+We introduce **REI-Bench**, a benchmark for assessing whether embodied agents can interpret **vague, underspecified, or coreferential** human instructions in task planning. In real-world settings, users often give instructions like "put the drink in the fridge" or "turn off the electronic device" without specifying *which* drink or device. This **referential vagueness** is a fundamental bottleneck: the agent must ground language to the right objects and then plan and execute. Existing benchmarks (e.g., ALFRED-style benchmarks) largely use clear, unambiguous instructions and thus do not evaluate this capability. REI-Bench fills this gap by providing a controlled benchmark where instruction vagueness is systematically varied, enabling rigorous evaluation and method development.
 
-Ubuntu 14.04+ is required. The scripts were developed and tested on Ubuntu 22.04 and Python 3.8.
+## ✨ Key Contributions
 
-You can use WSL-Ubuntu on Windows 10/11.
+- **REI-Bench design**: A benchmark that evaluates instruction understanding (grounding + planning) under referential and coreferential vagueness, rather than perception or low-level control alone.
+- **Multi-level referential vagueness**: A formal definition of **9 levels** of referential vagueness, combining **3 referential levels** (explicit, mixed, implicit) with **3 context types** (standard, noised, short).
+- **Evaluation of LLM-based planners**: Systematic evaluation of multiple LLMs and planning frameworks (e.g., SayCan, LLM+P, DAG-based planning) across these vagueness levels.
+- **TOCC (Task-Oriented Cognitive Control)**: A method that resolves vague referring expressions before planning, interfacing with existing LLM planners to improve robustness under ambiguous instructions.
 
-## Install
+## 📦 REI-Bench Overview
 
-1. Clone the whole repo.
-    ```bash
-    $ git clone {repo_url}
-    ```
+- **What REI stands for**: **R**eferential **E**mbodied **I**nstruction benchmark — focusing on *referential* understanding of instructions in embodied task planning.
+- **Task format**: Given a **natural language instruction** (possibly vague), the agent must (1) **ground** the instruction to concrete objects and goals in the environment, (2) **plan** a sequence of actions, and (3) **execute** in simulation (e.g., ALFRED/AI2-THOR). REI-Bench evaluates the full pipeline with emphasis on instruction understanding.
+- **What makes REI-Bench different**: Prior datasets assume clear, unambiguous instructions. REI-Bench explicitly introduces and controls referential and coreferential vagueness (e.g., "the cup," "electronic devices," "beverages") and varies context length and noise, so that progress can be measured on *understanding vague instructions* rather than only on perception or execution.
 
-1. Setup a virtual environment.
-    ```bash
-    $ conda create -n {env_name} python=3.8
-    $ conda activate {env_name}
-    ```
+### Vagueness levels
 
-1. Install PyTorch (2.0.0) first (see https://pytorch.org/get-started/locally/).
-    ```bash
-    # exemplary install command for PyTorch 2.0.0 with CUDA 11.7
-    $ pip install torch==2.0.0+cu117 torchvision==0.15.1+cu117 --index-url https://download.pytorch.org/whl/cu117
-    ```
+- **Referential level** (`re_level`): `explicit` (1), `mixed` (2), `implicit` (3).
+- **Context type**: `standard` (1), `noised` (2), `short` (3).
+- Together they define **9** task-difficulty configurations (e.g., `1-1` = explicit + standard, `3-3` = implicit + short), used for stratified evaluation and analysis.
 
-1. Install python packages in `requirements.txt`.
-    ```bash
-    $ pip install -r requirements.txt
-    ```
+## ⚙️ Requirements
 
-
-## Benchmarking on ALFRED
-
-### Download ALFRED dataset.
-```bash
-$ cd alfred/data
-$ sh download_data.sh json
-```
-
-### Benchmarking
-```bash
-$ python src/evaluate.py --config-name=config_alfred
-```
-
-You can override the configuration. We used [Hydra](https://hydra.cc/) for configuration management.
+- **Python**: 3.8+ (tested on Ubuntu 22.04, Python 3.8).
+- **PyTorch**: 2.0+ (e.g., `torch==2.0.0`, `torchvision==0.15.1`); install from [pytorch.org](https://pytorch.org/get-started/locally/) according to your CUDA version.
+- **Other major dependencies**: `transformers`, `hydra-core`, `omegaconf`, `guidance`, `ai2thor` (for ALFRED). See `requirements.txt` for the full list.
 
 ```bash
-$ python src/evaluate.py --config-name=config_alfred planner.model=EleutherAI/gpt-neo-125M
-$ python src/evaluate.py --config-name=config_alfred alfred.x_display='1'
-$ python src/evaluate.py --config-name=config_alfred alfred.eval_portion_in_percent=100 prompt.num_examples=18
+pip install -r requirements.txt
 ```
 
-### Headless Server
+## 📂 Evaluation Data
 
-Please run `startx.py` script before running ALFRED experiment on headless servers. Below script uses 1 for the X_DISPLAY id, but you can use different ids such as 0.
+REI-Bench is an **evaluation-only** codebase. It does not include or generate evaluation data. Obtain evaluation splits and environment data (e.g., ALFRED-compatible task lists and scene data) separately. Configure the path to your evaluation split in the Hydra config (e.g., the `split` key in `configs/config.yaml`).
+
+## 🏃‍♂️ Running Evaluation
+
+From the REI-Bench project root:
+
+**Standard evaluation (with display):**
 
 ```bash
-$ sudo python3 alfred/scripts/startx.py 1
+python scripts/evaluate.py
 ```
 
-
-## Benchmarking on Watch-And-Help
-### Download the VirtualHome Simulator
-- Download the VirtualHome simulator v2.2.2 and extract it
-```bash
-$ cd {project_root}/virtualhome/simulation/unity_simulator/
-$ wget http://virtual-home.org//release/simulator/v2.0/v2.2.2/linux_exec.zip
-$ unzip linux_exec.zip
-```
-
-### Benchmarking on Watch-And-Help-NL
-- Open a new terminal and run VirtualHome simulator
+Override Hydra config as needed (e.g., method, task difficulty, model):
 
 ```bash
-$ cd {project_root}
-$ ./virtualhome/simulation/unity_simulator/linux_exec.x86_64
+# Use TOCC for vague instruction resolution
+python scripts/evaluate.py method=tocc task_difficulty=explicit-standard
+
+# Evaluate on a specific vagueness level (e.g., implicit + short)
+python scripts/evaluate.py task_difficulty=implicit-short
+
+# Use a different model
+python scripts/evaluate.py model=llama3.1-8b
 ```
 
-- Open another terminal and evaluate.
+**Headless / server (no physical display):**
 
 ```bash
-$ cd {project_root}
-$ python src/evaluate.py --config-name=config_wah
+./scripts/run_evaluate_with_xvfb.sh
 ```
 
-- You can override the configuration. We used [Hydra](https://hydra.cc/) for configuration management.
+This starts a virtual display (Xvfb) and runs the same evaluator; you can append Hydra overrides as above.
 
-```bash
-$ cd {project_root}
-$ python src/evaluate.py --config-name=config_wah planner.model_name=EleutherAI/gpt-neo-1.3B prompt.num_examples=10
-```
+## 📊 Evaluation Protocol
 
-### Benchmarking on Watch-And-Help-NL Using Headless PC
-- Open a new terminal and run Xserver
-```bash
-$ cd {project}/virtualhome
-$ sudo python helper_scripts/startx.py $display_num
-```
-- Open another terminal and run unity simulator
-```bash
-$ cd {project}/virtualhome
-$ DISPLAY=:$display_num ./simulation/unity_simulator/linux_exec.x86_64 -batchmode
-```
-- Open another terminal and evaluate
-```bash
-$ cd {project_root}
-$ python src/evaluate.py --config-name=config_wah_headless
-```
+- **What success means in REI-Bench**: An episode is successful when the agent, given a (possibly vague) instruction, resolves references appropriately, produces a valid plan, and executes it so that the task goal is achieved in the environment.
+- **Stratified evaluation**: Evaluation is stratified by the 9 vagueness levels (referential × context type) so that robustness under increasing referential ambiguity can be analyzed. The evaluation code reports task-level outcomes on the chosen split and environment; see the paper for metric definitions and protocol details.
 
+## Method: TOCC (high-level)
 
-## Extensions
+TOCC (**T**ask-**O**riented **C**ognitive **C**ontrol) is an optional method that addresses referential vagueness by **resolving referring expressions** before the LLM planner is invoked. When the instruction contains vague phrases (e.g., "electronic devices," "beverages"), TOCC uses the LLM to produce a **clarified instruction** that pins down the intended objects or actions, then passes it to the planner. It interfaces with supported LLM-based planners (e.g., SayCan, LLM+P, DAG-based) as a preprocessing step. Enable it via `method=tocc` in the config.
 
-### In-context example selection
-```bash
-$ python src/evaluate.py --config-name=config_wah prompt.select_method=same_task
-$ python src/evaluate.py --config-name=config_wah prompt.select_method=topk
-```
+## 📜 Citation
 
-### Replanning
-```bash
-$ python src/evaluate.py --config-name=config_alfred planner.use_predefined_prompt=True
-```
-
-
-## Extract train samples from ALFRED for language model finetuning
-
-Make sure you have preprocessed data (run ALFRED benchmarking at least once).
-
-```bash
-$ python src/alfred/exmaine_alfred_data.py
-```
-
-The output text resource `resource/alfred_train_text_samples.txt` can be used for finetuning. 
-
-## WAH-NL Dataset
-
-You can find the WAH-NL data, which is our extension of WAH, in `./dataset` folder.
-
-
-## FAQ
-
-* Running out of disk space for Huggingface models
-  * You can set the cache folder to be in another disk.
-    ```bash
-    $ export TRANSFORMERS_CACHE=/mnt/otherdisk/.hf_cache/
-    ```
-
-* I have encountered 'cannot find X server with xdpyinfo' in running ALFRED experiments.
-  * Please try another x_display number (this should be a string; e.g., '1') in the config file.
-    ```bash
-    $ python src/evaluate.py --config-name=config_alfred alfred.x_display='1'
-    ```
-
-## Citation
+If you use REI-Bench or TOCC in your work, please cite:
 
 ```bibtex
-@inproceedings{choi2024lota,
-  title={LoTa-Bench: Benchmarking Language-oriented Task Planners for Embodied Agents},
-  author={Choi, Jae-Woo and Yoon, Youngwoo and Ong, Hyobin and Kim, Jaehong and Jang, Minsu},
-  booktitle={International Conference on Learning Representations (ICLR)},
-  year={2024}
+@inproceedings{reibench2026,
+  title     = {REI-Bench: Can Embodied Agents Understand Vague Human Instructions in Task Planning?},
+  author    = {Anonymous},
+  booktitle = {International Conference on Learning Representations (ICLR)},
+  year      = {2026},
+  note      = {Under review}
 }
 ```
+
+Replace `Anonymous` with the full author list (e.g., `Author One and Author Two and ...`) for the camera-ready version.

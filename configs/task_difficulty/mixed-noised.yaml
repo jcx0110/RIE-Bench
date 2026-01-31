@@ -1,0 +1,6 @@
+# @package _global_
+name: mixed-noised
+re_level: mixed
+context_type: noised
+data_type: "2-2"
+

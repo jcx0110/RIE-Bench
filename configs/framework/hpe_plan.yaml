@@ -1,0 +1,5 @@
+# @package _global_
+name: hpe_plan
+type: hpe_plan
+planner_framework: hpe_plan
+

@@ -1,7 +1,18 @@
+# IDE & editor
 .idea/
-outputs/
+.vscode/
+.cursor/
+
+# Python
 *.pyc
 __pycache__/
-.vscode/
-alfred/data/json_2.1.0/
-*.sh
+
+# Data & outputs (do not upload to GitHub; evaluation code only)
+data/
+dataset/
+output/
+outputs/
+alfred/data/
+
+# Local / sensitive
+.env

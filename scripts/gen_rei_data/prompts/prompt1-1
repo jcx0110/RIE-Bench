@@ -1,0 +1,16 @@
+Please integrate this sentence into a script as dialogue: {THE TASK}
+Scene description: Alice and her home robot are at home, with only the following items in the environment: AlarmClock, Apple, BaseballBat, BasketBall, Bowl, GarbageCan, HousePlant, Laptop, Mug, RemoteControl, SprayBottle, Television, Vase, ArmChair, Bed, Book, Bottle, Box, ButterKnife, Candle, CD, CellPhone, Chair, CoffeeTable, Cup, DeskLamp, Desk, DiningTable, Drawer, Dresser, FloorLamp, Fork, Newspaper, Painting, Pencil, Pen, PepperShaker, Pillow, Plate, Pot, SaltShaker, Shelf, SideTable, Sofa, Statue, TeddyBear, TennisRacket, TVStand, Watch. Please do not mention any requirements outside of these items.
+Requirements: 
+1.The dialogue content of "{THE TASK}" should be included in Alice's final instruction. Please have Alice state the request mentioned above only in the last sentence and refrain from making any other requests.
+2.Before making this request, Alice should mention some other requirements related to the {THE REFERENCE}. 
+3.There should be six rounds of dialogue before this request. Each character's lines should contain no fewer than 20 words, and no actions should be included for any character. 
+4.Please do not output anything other than the dialogue.
+5.Please try to retain the words of {THE REFERENCE} themselves in the conversation, rather than replacing them with pronouns like "it."
+Below, I will give you an example: Slice a tomato, cook it and bring it to the sink
+Allan: Hi, I want to make something special for dinner today. Can you help me check what's in the refrigerator? I want to know if there are any fresh vegetables or fruits I can use as sides.
+Robot: Of course, Allan. Please hold on. I will begin scanning the contents of the refrigerator. According to the records, there are some apples, but I didn't find any other fresh vegetables.
+Allan: Well, apples are a good choice, but I want something flavorful. I remember there are some tomatoes, but I’m not sure if they’re still good. Can you check?
+Robot: Sure, I will go check the tomatoes. Please wait a moment. After scanning, I can confirm there are several tomatoes, and they look fresh enough for cooking.
+Allan: Great! So today we can make tomato scrambled eggs, or we can slice the tomatoes for a salad. Which do you think is better?
+Robot: I recommend making tomato scrambled eggs because that will combine the flavor of the tomatoes with the deliciousness of the eggs, making it more tasty. What would you like me to do with the tomatoes next?
+Allan: Hmm, that sounds good! Please slice the tomatoes, cook tomatoes, and then put tomatoes in the sink. That will be a delicious start!

@@ -1,0 +1,6 @@
+# @package _global_
+name: explicit-standard
+re_level: explicit
+context_type: standard
+data_type: "1-1"
+

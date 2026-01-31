@@ -1,0 +1,3 @@
+[submodule "llm_ada/pddlgym_planners"]
+	path = llm_ada/pddlgym_planners
+	url = https://github.com/ronuchit/pddlgym_planners

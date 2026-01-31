@@ -29,13 +29,7 @@ def main():
         'pick up the soap bar',
         'find a toilet',
         'put down the soap bar',
-        'find a soap bar',
-        # 'find a sink',
-        # 'find a sink',
-        # 'open the fridge',
-        # 'put down the plate',
-        # 'put down the plate',
-        # 'put down the plate',
+        'find a soap bar'
     ]
 
     imgs = []
@@ -45,7 +39,6 @@ def main():
             print(ret_dict['message'])
         imgs.append(env.write_step_on_img(i, instruction))
 
-    # save_result(None, imgs, 'results_test')
 
 
 def minimal_test():
@@ -54,9 +47,6 @@ def minimal_test():
     controller = ai2thor.controller.Controller()
     controller.start()
 
-    # controller.reset('FloorPlan28')
-    # controller.step(dict(action='Initialize', gridSize=0.25))
-
     for i in range(10):
         controller.step(dict(action='RotateRight'))
         print('rotate')
@@ -64,5 +54,4 @@ def minimal_test():
 
 
 if __name__ == '__main__':
-    # minimal_test()
     main()

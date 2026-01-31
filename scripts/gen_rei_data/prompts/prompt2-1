@@ -1,0 +1,10 @@
+Here is the dialogue：
+{THE DIALOGUE}
+We are now going to adapt the previous dialogue. 
+Requirements: 
+1.Please add content only within the dialogue without deleting any existing content or changing the order of the dialogue.
+2.Please do not change the number of turns in the dialogue.Please do not change the structure of the dialogue.
+3.Please ensure the fluency of the dialogue.
+Please follow the requirements below for the adaptation.
+There is another member(a human) of the family named {CONFUSE NAME}. Please have Alice mention him 3 times when discussing anything related to {THE REFERENCE}, but without changing the existing meaning of the conversation. 
+Some details of {CONFUSE NAME}: He is warm-hearted, a bit of a goofball, but deeply caring. He has a natural curiosity and a love for teaching, which often spills over into his family life. His humor is a bit cheesy, and he often makes corny science jokes, much to his kids' embarrassment. He is a dedicated husband and a father of two. He’s the peacekeeper in the household and often plays the role of the mediator between his kids and his wife when disagreements arise. 

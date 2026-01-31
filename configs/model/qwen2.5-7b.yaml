@@ -1,0 +1,9 @@
+# @package _global_
+name: qwen2.5-7b
+model_name: "Qwen/Qwen2.5-7B-Instruct"
+use_accelerate_device_map: True
+load_in_8bit: False
+device: 'cuda'
+hf_auth_token: ${planner.hf_auth_token}
+openai_api_key: ''
+

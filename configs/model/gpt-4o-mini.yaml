@@ -1,0 +1,9 @@
+# @package _global_
+name: gpt-4o-mini
+model_name: "gpt-4o-mini"
+use_accelerate_device_map: False
+load_in_8bit: False
+device: 'cuda'
+hf_auth_token: ''
+openai_api_key: ${planner.openai_api_key}
+

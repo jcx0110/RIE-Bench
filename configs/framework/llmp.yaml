@@ -1,0 +1,5 @@
+# @package _global_
+name: llmp
+type: llmp
+planner_framework: LLM+P
+
