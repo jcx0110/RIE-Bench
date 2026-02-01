@@ -80,13 +80,12 @@ The script sets Mesa software-GL env vars and starts Xvfb with GLX; you can appe
 If you use REI-Bench or TOCC in your work, please cite:
 
 ```bibtex
-@inproceedings{reibench2026,
-  title     = {REI-Bench: Can Embodied Agents Understand Vague Human Instructions in Task Planning?},
-  author    = {Anonymous},
-  booktitle = {International Conference on Learning Representations (ICLR)},
-  year      = {2026},
-  note      = {Under review}
-}
+  @article{jiang2025rei,
+  title={REI-Bench: Can Embodied Agents Understand Vague Human Instructions in Task Planning?},
+  author={Jiang, Chenxi and Zhou, Chuhao and Yang, Jianfei},
+  journal={arXiv preprint arXiv:2505.10872},
+  year={2025}
+  }
 ```
 
 Replace `Anonymous` with the full author list (e.g., `Author One and Author Two and ...`) for the camera-ready version.
