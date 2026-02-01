@@ -26,21 +26,26 @@ We introduce **REI-Bench**, a benchmark for assessing whether embodied agents ca
 - **Task format**: Given a **natural language instruction** (possibly vague), the agent must (1) **ground** the instruction to concrete objects and goals in the environment, (2) **plan** a sequence of actions, and (3) **execute** in simulation (e.g., ALFRED/AI2-THOR). REI-Bench evaluates the full pipeline with emphasis on instruction understanding.
 - **What makes REI-Bench different**: Prior datasets assume clear, unambiguous instructions. REI-Bench explicitly introduces and controls referential and coreferential vagueness (e.g., "the cup," "electronic devices," "beverages") and varies context length and noise, so that progress can be measured on *understanding vague instructions* rather than only on perception or execution.
 
-### Vagueness levels
-
-- **Referential level** (`re_level`): `explicit` (1), `mixed` (2), `implicit` (3).
-- **Context type**: `standard` (1), `noised` (2), `short` (3).
-- Together they define **9** task-difficulty configurations (e.g., `1-1` = explicit + standard, `3-3` = implicit + short), used for stratified evaluation and analysis.
-
 ## ⚙️ Requirements
 
 - **Python**: 3.8+ (tested on Ubuntu 22.04, Python 3.8).
 - **PyTorch**: 2.0+ (e.g., `torch==2.0.0`, `torchvision==0.15.1`); install from [pytorch.org](https://pytorch.org/get-started/locally/) according to your CUDA version.
-- **Other major dependencies**: `transformers`, `hydra-core`, `omegaconf`, `guidance`, `ai2thor` (for ALFRED). See `requirements.txt` for the full list.
+- **Other major dependencies**: `transformers`, `hydra-core`, `omegaconf`, `guidance`, `ai2thor` (for ALFRED).
+
+**Install with conda (recommended):**
 
 ```bash
-pip install -r requirements.txt
+conda env create -f requriements.yaml
+conda activate chenxi_lotabench
 ```
+
+Or install with pip in your own environment (PyTorch first from [pytorch.org](https://pytorch.org/get-started/locally/), then):
+
+```bash
+pip install transformers hydra-core omegaconf guidance ai2thor accelerate
+```
+
+For ALFRED submodule dependencies, see `alfred/requirements.txt`.
 
 ## 📂 Evaluation Data
 
@@ -79,28 +84,7 @@ If you see `Exception: command: [.../thor-...] exited with 1` or `X Error ... GL
 
 The script sets Mesa software-GL env vars and starts Xvfb with GLX; you can append Hydra overrides (e.g. `./scripts/run_evaluate_with_xvfb.sh method=tocc`). If GLX errors persist, install Mesa: `sudo apt-get install -y xvfb libgl1-mesa-glx libgl1-mesa-dri` and try again, or run evaluation in Docker (e.g. [ai2thor-docker](https://github.com/allenai/ai2thor-docker)).
 
-## 📊 Evaluation Protocol
 
-- **What success means in REI-Bench**: An episode is successful when the agent, given a (possibly vague) instruction, resolves references appropriately, produces a valid plan, and executes it so that the task goal is achieved in the environment.
-- **Stratified evaluation**: Evaluation is stratified by the 9 vagueness levels (referential × context type) so that robustness under increasing referential ambiguity can be analyzed. The evaluation code reports task-level outcomes on the chosen split and environment; see the paper for metric definitions and protocol details.
-
-## Method: TOCC (high-level)
-
-TOCC (**T**ask-**O**riented **C**ognitive **C**ontrol) is an optional method that addresses referential vagueness by **resolving referring expressions** before the LLM planner is invoked. When the instruction contains vague phrases (e.g., "electronic devices," "beverages"), TOCC uses the LLM to produce a **clarified instruction** that pins down the intended objects or actions, then passes it to the planner. It interfaces with supported LLM-based planners (e.g., SayCan, LLM+P, DAG-based) as a preprocessing step. Enable it via `method=tocc` in the config.
-
-## 🔒 Avoid committing Chinese (optional)
-
-To block commits that add Chinese characters in code/comments (e.g. keep repo English-only):
-
-1. **Install the pre-commit hook once** (from repo root):
-
-   ```bash
-   bash scripts/install-pre-commit-no-chinese.sh
-   ```
-
-2. On each `git commit`, staged `.py`, `.yml`, `.md`, `.txt`, etc. are checked; if any contain Chinese (CJK Unified Ideographs), the commit is rejected and the offending files/lines are printed.
-
-3. To run the check manually without committing: `python scripts/check_no_chinese.py` (checks staged files only).
 
 ## 📜 Citation
 
