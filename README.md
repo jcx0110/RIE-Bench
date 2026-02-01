@@ -31,11 +31,10 @@ conda activate reibench
 **Data (ALFRED)**
 
 ```bash
-cd alfred/data
-sh download_data.sh json
+sh data/raw/alfred/download_data.sh json
 ```
 
-Point config `split` and data paths to the downloaded data (e.g. `data/raw/alfred/json_2.1.0`, `data/raw/alfred/splits/`).
+Output is `data/raw/alfred/json_2.1.0`. Point config `split` and data paths to it (and e.g. `data/raw/alfred/splits/` for splits).
 
 ## Run
 
