@@ -1,6 +1,6 @@
 # REI-Bench: Can Embodied Agents Understand Vague Human Instructions in Task Planning?
 
-This repository is the **official evaluation codebase** for **REI-Bench**, from the paper **REI-Bench: Can Embodied Agents Understand Vague Human Instructions in Task Planning?**. REI-Bench is an evaluation benchmark for embodied task planners under **referential and coreferential vagueness** in natural language instructions.
+This repository is the **official evaluation codebase** for **REI-Bench**, from the paper **REI-Bench: Can Embodied Agents Understand Vague Human Instructions in Task Planning?** REI-Bench is an evaluation benchmark for embodied task planners under **referential and coreferential vagueness** in natural language instructions.
 
 **Project webpage:** [https://jcx0110.github.io/REI-Bench-web/](https://jcx0110.github.io/REI-Bench-web/)
 
