@@ -6,8 +6,8 @@ This repository is the **official evaluation codebase** for **REI-Bench**, from 
 
 ## 🤖 Authors
 
-See the paper for the full list of authors.  
-**MARS Lab**, Nanyang Technological University (NTU)
+**Chenxi Jiang**, **Chuhao Zhou**, **Jianfei Yang**  
+MARS Lab, Nanyang Technological University (NTU)
 
 ## 🧭 Introduction
 
@@ -50,6 +50,17 @@ For ALFRED submodule dependencies, see `alfred/requirements.txt`.
 ## 📂 Evaluation Data
 
 REI-Bench is an **evaluation-only** codebase. It does not include or generate evaluation data. Obtain evaluation splits and environment data (e.g., ALFRED-compatible task lists and scene data) separately. Configure the path to your evaluation split in the Hydra config (e.g., the `split` key in `configs/config.yaml`).
+
+### Benchmarking on ALFRED
+
+Download the ALFRED dataset (from the parent ALFRED codebase):
+
+```bash
+cd alfred/data
+sh download_data.sh json
+```
+
+Then point the config `split` and data paths to the downloaded data (e.g. `data/raw/alfred/json_2.1.0` and your splits under `data/raw/alfred/splits/`).
 
 ## 🏃‍♂️ Running Evaluation
 
