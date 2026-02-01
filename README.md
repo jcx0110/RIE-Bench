@@ -17,61 +17,37 @@ We introduce **REI-Bench**, a benchmark for assessing whether embodied agents ca
 - **PyTorch**: 2.0+ (e.g., `torch==2.0.0`, `torchvision==0.15.1`); install from [pytorch.org](https://pytorch.org/get-started/locally/) according to your CUDA version.
 - **Other major dependencies**: `transformers`, `hydra-core`, `omegaconf`, `guidance`, `ai2thor` (for ALFRED).
 
-**Install with conda (recommended):**
+## Prepare
+
+Evaluation requires your own data; set the `split` and data paths in `configs/config.yaml`.
+
+**Environment**
 
 ```bash
 conda env create -f requriements.yaml
 conda activate reibench
 ```
 
-
-## 📂 Evaluation Data
-
-REI-Bench is an **evaluation-only** codebase. It does not include or generate evaluation data. Obtain evaluation splits and environment data (e.g., ALFRED-compatible task lists and scene data) separately. Configure the path to your evaluation split in the Hydra config (e.g., the `split` key in `configs/config.yaml`).
-
-### Benchmarking on ALFRED
-
-Download the ALFRED dataset (from the parent ALFRED codebase):
+**Data (ALFRED)**
 
 ```bash
 cd alfred/data
 sh download_data.sh json
 ```
 
-Then point the config `split` and data paths to the downloaded data (e.g. `data/raw/alfred/json_2.1.0` and your splits under `data/raw/alfred/splits/`).
+Point config `split` and data paths to the downloaded data (e.g. `data/raw/alfred/json_2.1.0`, `data/raw/alfred/splits/`).
 
-## 🏃‍♂️ Running Evaluation
+## Run
 
-From the REI-Bench project root:
-
-**Standard evaluation (with display):**
+From the project root:
 
 ```bash
 python scripts/evaluate.py
 ```
 
-Override Hydra config as needed (e.g., method, task difficulty, model):
+Override options via Hydra, e.g. `python scripts/evaluate.py method=tocc task_difficulty=explicit-standard`.
 
-```bash
-# Use TOCC for vague instruction resolution
-python scripts/evaluate.py method=tocc task_difficulty=explicit-standard
-
-# Evaluate on a specific vagueness level (e.g., implicit + short)
-python scripts/evaluate.py task_difficulty=implicit-short
-
-# Use a different model
-python scripts/evaluate.py model=llama3.1-8b
-```
-
-**Headless / server (no physical display):**
-
-If you see `Exception: command: [.../thor-...] exited with 1` or `X Error ... GLX ... X_GLXCreateContext`, the THOR simulator needs an X display with GLX. Use:
-
-```bash
-./scripts/run_evaluate_with_xvfb.sh
-```
-
-The script sets Mesa software-GL env vars and starts Xvfb with GLX; you can append Hydra overrides (e.g. `./scripts/run_evaluate_with_xvfb.sh method=tocc`). If GLX errors persist, install Mesa: `sudo apt-get install -y xvfb libgl1-mesa-glx libgl1-mesa-dri` and try again, or run evaluation in Docker (e.g. [ai2thor-docker](https://github.com/allenai/ai2thor-docker)).
+Without a display (e.g. headless server), use `./scripts/run_evaluate_with_xvfb.sh` (you can append overrides). If you hit GLX errors, install `xvfb libgl1-mesa-glx libgl1-mesa-dri` or use [ai2thor-docker](https://github.com/allenai/ai2thor-docker).
 
 
 
