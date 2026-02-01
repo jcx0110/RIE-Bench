@@ -1,6 +1,8 @@
 # REI-Bench: Can Embodied Agents Understand Vague Human Instructions in Task Planning?
 
-This repository is the **official evaluation codebase** for **REI-Bench**, from the paper **REI-Bench: Can Embodied Agents Understand Vague Human Instructions in Task Planning?** (under review at **ICLR 2026**). REI-Bench is an evaluation benchmark for embodied task planners under **referential and coreferential vagueness** in natural language instructions. This repo provides evaluation-only code; evaluation data is obtained separately. The paper also proposes **TOCC** (Task-Oriented Cognitive Control) as an optional method, supported in this codebase.
+This repository is the **official evaluation codebase** for **REI-Bench**, from the paper **REI-Bench: Can Embodied Agents Understand Vague Human Instructions in Task Planning?** (**ICLR 2026**). REI-Bench is an evaluation benchmark for embodied task planners under **referential and coreferential vagueness** in natural language instructions.
+
+**Project webpage:** [https://jcx0110.github.io/REI-Bench-web/](https://jcx0110.github.io/REI-Bench-web/)
 
 ## 🤖 Authors
 
@@ -69,11 +71,13 @@ python scripts/evaluate.py model=llama3.1-8b
 
 **Headless / server (no physical display):**
 
+If you see `Exception: command: [.../thor-...] exited with 1` or `X Error ... GLX ... X_GLXCreateContext`, the THOR simulator needs an X display with GLX. Use:
+
 ```bash
 ./scripts/run_evaluate_with_xvfb.sh
 ```
 
-This starts a virtual display (Xvfb) and runs the same evaluator; you can append Hydra overrides as above.
+The script sets Mesa software-GL env vars and starts Xvfb with GLX; you can append Hydra overrides (e.g. `./scripts/run_evaluate_with_xvfb.sh method=tocc`). If GLX errors persist, install Mesa: `sudo apt-get install -y xvfb libgl1-mesa-glx libgl1-mesa-dri` and try again, or run evaluation in Docker (e.g. [ai2thor-docker](https://github.com/allenai/ai2thor-docker)).
 
 ## 📊 Evaluation Protocol
 
@@ -83,6 +87,20 @@ This starts a virtual display (Xvfb) and runs the same evaluator; you can append
 ## Method: TOCC (high-level)
 
 TOCC (**T**ask-**O**riented **C**ognitive **C**ontrol) is an optional method that addresses referential vagueness by **resolving referring expressions** before the LLM planner is invoked. When the instruction contains vague phrases (e.g., "electronic devices," "beverages"), TOCC uses the LLM to produce a **clarified instruction** that pins down the intended objects or actions, then passes it to the planner. It interfaces with supported LLM-based planners (e.g., SayCan, LLM+P, DAG-based) as a preprocessing step. Enable it via `method=tocc` in the config.
+
+## 🔒 Avoid committing Chinese (optional)
+
+To block commits that add Chinese characters in code/comments (e.g. keep repo English-only):
+
+1. **Install the pre-commit hook once** (from repo root):
+
+   ```bash
+   bash scripts/install-pre-commit-no-chinese.sh
+   ```
+
+2. On each `git commit`, staged `.py`, `.yml`, `.md`, `.txt`, etc. are checked; if any contain Chinese (CJK Unified Ideographs), the commit is rejected and the offending files/lines are printed.
+
+3. To run the check manually without committing: `python scripts/check_no_chinese.py` (checks staged files only).
 
 ## 📜 Citation
 
