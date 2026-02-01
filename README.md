@@ -87,5 +87,3 @@ If you use REI-Bench or TOCC in your work, please cite:
   year={2025}
   }
 ```
-
-Replace `Anonymous` with the full author list (e.g., `Author One and Author Two and ...`) for the camera-ready version.
