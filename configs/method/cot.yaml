@@ -1,7 +1,0 @@
-# @package _global_
-name: cot
-aware_hint: False
-COT: True
-TOCC: False
-ICL: False
-

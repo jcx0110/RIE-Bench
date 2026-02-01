@@ -1,5 +1,0 @@
-# @package _global_
-name: dag_plan
-type: dag_plan
-planner_framework: dag_plan
-

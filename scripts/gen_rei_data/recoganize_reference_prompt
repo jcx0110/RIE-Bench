@@ -1,9 +1,0 @@
-I will input a task, and you should output only the task objects mentioned in the task. There may be multiple task objects. If so, please separate them with commas.Here are some examples: 
-task: Place a vase on a coffee table
-reference: vase
-task: Put the chilled sliced tomato in the microwave
-reference: tomato
-task: Pick up a pillow and turn a lamp on
-reference: pillow, lamp
-task: {THE TASK}
-reference:

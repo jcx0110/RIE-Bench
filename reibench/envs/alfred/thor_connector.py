@@ -1,5 +1,7 @@
 import os, math, re
 import textwrap
+import json
+import time
 
 import numpy as np
 from scipy import spatial
@@ -13,6 +15,15 @@ from reibench.envs.alfred.utils import natural_word_to_ithor_name
 
 log = logging.getLogger(__name__)
 
+# #region agent log
+def _dbg_thor(payload):
+    try:
+        with open("/home/chenxi/chenxi/LLMTaskPlanning/.cursor/debug.log", "a") as f:
+            f.write(json.dumps({**payload, "timestamp": int(time.time() * 1000)}) + "\n")
+    except Exception:
+        pass
+# #endregion
+
 
 class ThorConnector(ThorEnv):
     def __init__(self, x_display=constants.X_DISPLAY,
@@ -20,7 +31,14 @@ class ThorConnector(ThorEnv):
                  player_screen_width=constants.DETECTION_SCREEN_WIDTH,
                  quality='MediumCloseFitShadows',
                  build_path=constants.BUILD_PATH):
-        super().__init__(x_display, player_screen_height, player_screen_width, quality, build_path)
+        # Prefer DISPLAY from env (e.g. set by xvfb-run) so THOR uses the same display
+        display_env = os.environ.get("DISPLAY")
+        if display_env:
+            display_num = display_env.lstrip(":").strip().split(".")[0] or "0"
+        else:
+            display_num = str(x_display).lstrip(":")
+            os.environ["DISPLAY"] = ":" + display_num
+        super().__init__(display_num, player_screen_height, player_screen_width, quality, build_path)
         self.font = ImageFont.truetype("/usr/share/fonts/truetype/ubuntu/UbuntuMono-B.ttf", 24)
         self.agent_height = 0.9
         self.cur_receptacle = None
@@ -65,6 +83,9 @@ class ThorConnector(ThorEnv):
         return self.reachable_positions[selected]
 
     def llm_skill_interact(self, instruction: str):
+        # #region agent log
+        _dbg_thor({"location": "thor_connector.llm_skill_interact", "message": "entry", "hypothesisId": "H2", "data": {"instruction": instruction[:60]}})
+        # #endregion
         if instruction.startswith("put down ") or instruction.startswith("open "):
             pass
         else:
@@ -113,18 +134,20 @@ class ThorConnector(ThorEnv):
             assert False, 'instruction not supported'
 
         if not self.last_event.metadata['lastActionSuccess']:
-            log.warning(f"llm_skill_interact failed")
-            log.warning(f"errorMessage: {self.last_event.metadata['errorMessage']}")
-            log.warning(f"returned msg: {ret}")
-        else:
-            log.info(f"Last action succeeded")
+            err = self.last_event.metadata.get('errorMessage', '')
+            if 'nothing in hand to drop' in err:
+                log.debug(f"llm_skill_interact failed: {err}")
+            else:
+                log.warning(f"llm_skill_interact failed: {err}")
 
         ret_dict = {
             'action': instruction,
             'success': len(ret) <= 0,
             'message': ret
         }
-
+        # #region agent log
+        _dbg_thor({"location": "thor_connector.llm_skill_interact", "message": "exit", "hypothesisId": "H2", "data": {"success": ret_dict["success"]}})
+        # #endregion
         return ret_dict
 
     def get_object_prop(self, name, prop, metadata):
@@ -140,10 +163,7 @@ class ThorConnector(ThorEnv):
         return math.degrees(math.atan2(math.sin(x - y), math.cos(x - y)))
     def nav_obj(self, target_obj: str, prefer_sliced=False):
         objects = self.last_event.metadata['objects']
-        action_name = 'object navigation'
         ret_msg = ''
-        log.info(f'{action_name} ({target_obj})')
-
         obj_id, obj_data = self.get_obj_id_from_name(target_obj, priority_in_visibility=True, priority_sliced=prefer_sliced)
 
         obj_idx = -1
@@ -162,12 +182,15 @@ class ThorConnector(ThorEnv):
             obj_rot = objects[obj_idx]['rotation']['y']
 
             if objects[obj_idx]['visible'] and objects[obj_idx]['distance'] < 1.0:
-                log.info('Object is already visible')
                 max_attempts = 0
                 teleport_success = True
 
             reachable_pos_idx = 0
             for i in range(max_attempts):
+                # #region agent log
+                if i % 5 == 0 or i < 3:
+                    _dbg_thor({"location": "thor_connector.nav_obj", "message": "attempt", "hypothesisId": "H3", "data": {"attempt": i, "target_obj": target_obj}})
+                # #endregion
                 reachable_pos_idx += 1
                 if i == 10 and (target_obj == 'Fridge' or target_obj == 'Microwave'):
                     reachable_pos_idx -= 10
@@ -253,8 +276,6 @@ class ThorConnector(ThorEnv):
     def pick(self, obj_name):
         obj_id, obj_data = self.get_obj_id_from_name(obj_name, only_pickupable=True, priority_in_visibility=True, priority_sliced=self.sliced)
         ret_msg = ''
-        log.info(f'pick {obj_id}')
-
         if obj_id is None:
             ret_msg = f'Cannot find {obj_name} to pick up'
         else:
@@ -366,7 +387,6 @@ class ThorConnector(ThorEnv):
         return ret_msg
 
     def drop(self):
-        log.info(f'drop')
         ret_msg = ''
         super().step(dict(
             action="DropHandObject",
@@ -417,7 +437,6 @@ class ThorConnector(ThorEnv):
         return ret_msg
 
     def close(self, obj_name):
-        log.info(f'close {obj_name}')
         ret_msg = ''
         obj_id, _ = self.get_obj_id_from_name(obj_name)
         if obj_id is None:
@@ -434,7 +453,6 @@ class ThorConnector(ThorEnv):
         return ret_msg
 
     def toggleon(self, obj_name):
-        log.info(f'toggle on {obj_name}')
         ret_msg = ''
         obj_id, _ = self.get_obj_id_from_name(obj_name, only_toggleable=True)
         if obj_id is None:
@@ -451,7 +469,6 @@ class ThorConnector(ThorEnv):
         return ret_msg
 
     def toggleoff(self, obj_name):
-        log.info(f'toggle off {obj_name}')
         ret_msg = ''
         obj_id, _ = self.get_obj_id_from_name(obj_name, only_toggleable=True)
         if obj_id is None:
@@ -468,7 +485,6 @@ class ThorConnector(ThorEnv):
         return ret_msg
 
     def slice(self, obj_name):
-        log.info(f'slice {obj_name}')
         ret_msg = ''
         obj_id, _ = self.get_obj_id_from_name(obj_name)
         if obj_id is None:

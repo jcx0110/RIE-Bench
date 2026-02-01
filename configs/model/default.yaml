@@ -1,9 +1,0 @@
-# @package _global_
-name: default
-model_name: "meta-llama/Llama-3.1-8B-Instruct"
-use_accelerate_device_map: True
-load_in_8bit: False
-device: 'cuda'
-hf_auth_token: ''
-openai_api_key: ''
-

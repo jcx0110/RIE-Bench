@@ -1,4 +1,5 @@
 import json
+import os
 import random
 from collections import defaultdict
 import logging
@@ -77,7 +78,8 @@ class AlfredTaskPlanner(TaskPlanner):
         return prompt
 
     def load_prompt(self, cfg):
-        with open('prompts/predefined_prompt.txt') as f:
+        _prompts_dir = os.path.join(os.path.dirname(__file__), "prompts")
+        with open(os.path.join(_prompts_dir, "predefined_prompt.txt")) as f:
             prompt = f.read()
         return prompt
 
@@ -111,8 +113,5 @@ class AlfredTaskPlanner(TaskPlanner):
             skills.append(f'turn off the {o}')
 
         skills = [' ' + c for c in skills]
-
-        log.info(f'# of skills: {len(skills)}')
-        log.info(skills)
 
         return skills

@@ -1,7 +1,0 @@
-# @package _global_
-name: tocc
-aware_hint: False
-COT: False
-TOCC: True
-ICL: False
-

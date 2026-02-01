@@ -7,12 +7,14 @@
 *.pyc
 __pycache__/
 
-# Data & outputs (do not upload to GitHub; evaluation code only)
-data/
+# Data & outputs (do not upload; exclude only these two)
+data/raw/alfred/json_2.1.0/
+outputs/
 dataset/
 output/
-outputs/
 alfred/data/
 
 # Local / sensitive
 .env
+secrets.txt
+third_party/keys/openai_keys.txt

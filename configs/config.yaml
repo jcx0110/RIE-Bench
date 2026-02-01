@@ -1,54 +1,58 @@
 name: alfred
 
 defaults:
-  - hydra: default.yaml
-  - planner: default.yaml
-  - framework: dag_plan
-  - model: llama3.1-8b
-  - method: base
+  - _self_
   - task_difficulty: explicit-standard
 
-# Legacy support: keep old format for backward compatibility
-# data_types: ['1-1', '2-1', '3-1', '1-2', '2-2', '3-2', '1-3', '2-3', '3-3']
-data_types: ['1-1', '1-2','1-3']
-data_type: Null
+# Hydra run dir: outputs/<timestamp> (no name subdir like alfred/)
+hydra:
+  run:
+    dir: outputs/${now:%Y-%m-%d}_${now:%H-%M-%S}
+
+# data_types: context-RE (context: standard | noised | short; RE: explicit | mixed | implicit)
+data_types:
+  - standard-explicit
+  - standard-mixed
+  - standard-implicit
+  - noised-explicit
+  - noised-mixed
+  - noised-implicit
+  - short-explicit
+  - short-mixed
+  - short-implicit
 
 out_dir: ${hydra:run.dir}
 
-# split: 'alfred/data/splits/pre_experiment_tasks3_subsample_100.json'
-        # 'alfred/data/splits/choosed_task.json'
-        # 'alfred/data/splits/prompt_experiment100.json'
-        # 'alfred/data/splits/pre_experiment_tasks3.json'
-split: 'data/raw/alfred/splits/pre_experiment_tasks3.json'
-# split: 'data/raw/alfred/splits/img_drawing_texting.json'
+split: 'data/rei_bench/splits/rei_bench.json'
 
 planner:
   model_name: "meta-llama/Llama-3.1-8B-Instruct"
-  # 'mistralai/Ministral-8B-Instruct-2410', "Qwen/Qwen2.5-7B-Instruct", "meta-llama/Llama-3.1-8B-Instruct" 
-  # "google/gemma-2-9b-it" 'deepseek-ai/deepseek-math-7b-instruct' deepseek-ai/DeepSeek-R1-Distill-Llama-8B
-  # max_steps: 30
-  planner_framework: "dag_plan"   # "saycan"  "LLM+P"  "dag_plan"   "hpe_plan"
+  # Alternatives: "Qwen/Qwen2.5-7B-Instruct", "gpt-4o-mini", "mistralai/Ministral-8B-Instruct-2410" 
+  # "google/gemma-2-9b-it" "deepseek-ai/deepseek-math-7b-instruct" "deepseek-ai/DeepSeek-R1-Distill-Llama-8B"
+  max_steps: 30
+  # Override via CLI: planner.planner_framework=saycan | dag_plan | hpe_plan
+  planner_framework: "saycan"
   device: "cuda"
   scoring_batch_size: 10
   score_function: 'sum'
   scoring_mode: 'guidance'
   use_predefined_prompt: True
   use_accelerate_device_map: True
-  hf_auth_token: ''  # set via env HF_TOKEN or fill for private HuggingFace models
+  hf_auth_token: ''  
   random_seed: 0
   nl_act_list: ["find", "pick up", "open", "close", "switch on", "put down"] 
   dynamic_skill_set: False
-  openai_api_key: ''  # set via env OPENAI_API_KEY or fill for OpenAI-based models
+  openai_api_key: ''  
 
 prompt:
   num_examples: 6
   splitter: ""
   prefix: "Robot: Hi there, I'm a robot operating in a home.\nRobot: You can ask me to do various tasks and I'll tell you the sequence of actions I would do to accomplish your task.\n"
-  example_file_path: "prompts/alfred_examples_for_prompt.json"
+  example_file_path: "reibench/planners/prompts/alfred_examples_for_prompt.json"
 
 alfred:
   x_display: '1'
-  eval_set: 'valid_seen'  # valid_seen, valid_unseen, tests_unseen
+  eval_set: 'valid_seen'
   eval_portion_in_percent: 5  # use a small set for a faster evaluationin. 100 means a full set.
   random_seed_for_eval_subset: 1
 
@@ -56,3 +60,4 @@ prompting_method:
   aware_hint: False
   COT: False
   TOCC: False
+  ICL: False

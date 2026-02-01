@@ -1,5 +1,5 @@
 # @package _global_
-name: mixed-standard
+task_difficulty_name: mixed-standard
 re_level: mixed
 context_type: standard
 data_type: "2-1"

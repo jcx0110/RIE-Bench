@@ -11,7 +11,6 @@ sys.path.insert(0, './alfred')
 
 from PIL import Image, ImageDraw, ImageFont
 
-from alfred.data.preprocess import Dataset
 from reibench.planners.alfred_planner import AlfredTaskPlanner
 from reibench.envs.alfred.thor_connector import ThorConnector
 from reibench.envs.alfred.utils import dotdict, load_task_json
@@ -23,7 +22,6 @@ from omegaconf import DictConfig, OmegaConf
 
 from reibench.evaluator import Evaluator
 
-from reibench.planners.llm_p_planner import llmp_planner, Planner
 from reibench.utils.config_mapper import (
     get_planner_framework, get_data_type, get_data_types, get_prompting_method
 )
@@ -33,6 +31,18 @@ import time
 font = ImageFont.truetype("/usr/share/fonts/truetype/ubuntu/UbuntuMono-B.ttf", 24)
 log = logging.getLogger(__name__)
 log_success = logging.getLogger(f"{__name__}_success")
+
+# Prompts live under reibench/planners/prompts/
+_PROMPTS_DIR = os.path.join(os.path.dirname(__file__), "planners", "prompts")
+
+# #region agent log
+def _dbg(payload):
+    try:
+        with open("/home/chenxi/chenxi/LLMTaskPlanning/.cursor/debug.log", "a") as f:
+            f.write(json.dumps({**payload, "timestamp": int(time.time() * 1000)}) + "\n")
+    except Exception:
+        pass
+# #endregion
 
 class AlfredEvaluator(Evaluator):
     def __init__(self, hparams):
@@ -48,25 +58,19 @@ class AlfredEvaluator(Evaluator):
     def evaluate(self):
         cfg = self.cfg
 
-        log.info(OmegaConf.to_yaml(cfg))
         global splits
 
         if self.planner_framework == "saycan" or self.planner_framework == "dag_plan" or self.planner_framework == "hpe_plan":
             if len(cfg.planner.model_name) > 0:
-                self.planner = AlfredTaskPlanner(cfg)
-                self.planner.reset() 
+                if not getattr(self, 'planner', None):
+                    self.planner = AlfredTaskPlanner(cfg)
+                    self.planner.reset()
             else:
                 self.planner = None
-        elif self.planner_framework == "LLM+P":
-            planner = AlfredTaskPlanner(cfg)
-            self.skillset = planner.init_skill_set()
-            prompt = planner.init_prompt(cfg)
-            prompt_lines = prompt.split('\n')
-            prompt_examples = prompt_lines[2:]
-            self.example_text = '\n'.join(prompt_examples)
-            self.planner = Planner()
+        else:
+            raise ValueError(f"Unknown planner_framework: {self.planner_framework}. Use saycan, dag_plan, or hpe_plan.")
 
-        args_dict = {'data': 'data/raw/alfred/json_2.1.0 copy', 'pframe': 300, 'fast_epoch': False,
+        args_dict = {'data': 'data/raw/alfred/json_2.1.0', 'pframe': 300, 'fast_epoch': False,
                     'use_templated_goals': False, 'dout': 'exp/model', 'pp_folder': 'pp',
                     'reward_config': 'alfred/models/config/rewards.json', 'max_steps': 1000}
         
@@ -74,18 +78,22 @@ class AlfredEvaluator(Evaluator):
 
         with open(splits) as f:
             splits = json.load(f)
-            pprint.pprint({k: len(v) for k, v in splits.items()})
 
         number_of_dirs = len(list(os.listdir(args_dict['data'])))
         do_preprocessing = number_of_dirs < 50 
         if do_preprocessing:
+            try:
+                from alfred.data.preprocess import Dataset
+            except ModuleNotFoundError:
+                raise ModuleNotFoundError(
+                    "Preprocessing requested (data dirs < 50) but alfred.data.preprocess not found. "
+                    "Add ALFRED data module (alfred/data/preprocess.py from askforalfred/alfred) or use a dataset with >= 50 task dirs to skip preprocessing."
+                ) from None
             log.info("\nPreprocessing dataset... Do this once as required:")
             vocab = None
             dataset = Dataset(dotdict(args_dict), vocab)
             dataset.preprocess_splits(splits)
 
-        print("loading eval_set:", cfg.alfred.eval_set)
-        print("usable splits:", splits.keys())
         assert cfg.alfred.eval_set in splits.keys()
         files = []
 
@@ -103,26 +111,21 @@ class AlfredEvaluator(Evaluator):
         start = time.time()
         x_display = cfg.alfred.x_display
         save_path = cfg.out_dir
+        # #region agent log
+        _dbg({"location": "alfred_evaluator.evaluate", "message": "before_evaluate_main", "hypothesisId": "H1", "data": {"n_tasks": len(files)}})
+        # #endregion
         results = self.evaluate_main(files, args_dict, self.planner, x_display, save_path)
+        # #region agent log
+        _dbg({"location": "alfred_evaluator.evaluate", "message": "after_evaluate_main", "hypothesisId": "H1", "data": {"n_results": len(results)}})
+        # #endregion
 
-        log.info(results)
         n = len(results)
-        n_success = 0
-        for e in results:
-            if e['success']:
-                n_success += 1
-                log.info(f'{e}')
-        # 计算平均 whole-plan latency
+        n_success = sum(1 for e in results if e['success'])
         latencies = [e['whole_plan_latency_ms'] for e in results if 'whole_plan_latency_ms' in e]
-        if len(latencies) > 0:
-            avg_latency = sum(latencies) / len(latencies)
-            log.info(f'Average whole-plan latency: {avg_latency:.2f} ms')
-        else:
-            log.info('No latency data recorded.')
         log.info(f'success rate: {n_success / n * 100:.2f} % ({n_success}/{n})')
         log.info(f'elapsed: {str(datetime.timedelta(seconds=(time.time() - start)))}')
-        log.info('------------------------')
-        log.info(OmegaConf.to_yaml(cfg))  
+        if len(latencies) > 0:
+            log.info(f'Average whole-plan latency: {sum(latencies) / len(latencies):.2f} ms')  
 
     def evaluate_main(self, tasks, args_dict, planner, x_display, save_path):
         results = []
@@ -142,106 +145,59 @@ class AlfredEvaluator(Evaluator):
             for ex in train_examples:
                 train_gt_steps[ex['task id']] = ex['NL steps']
 
-        for i, task in enumerate(tqdm(tasks)):
-            log.info(f"repeat_idx:{task['repeat_idx']} task:{task['task']}")
+        data_type = getattr(self.cfg, 'data_type', '')
+        log.info(f"Evaluating {len(tasks)} tasks (data_type={data_type})")
+        for i, task in enumerate(tqdm(tasks, leave=False, mininterval=10)):
             traj_data = load_task_json(task, args_dict["data"])
             r_idx = task['repeat_idx']
+            # #region agent log
+            _dbg({"location": "evaluate_main.loop", "message": "task_start", "hypothesisId": "H1", "data": {"task_i": i, "task_id": traj_data.get("task_id", "")}})
+            # #endregion
             try:
-                log.info(f"repeat_idx:{task['repeat_idx']} task:{task['task']}")
-                traj_data = load_task_json(task, args_dict["data"])
-                r_idx = task['repeat_idx']
-                log.info(f"Evaluating ({i+1}/{len(tasks)}): {traj_data['root']}")
                 if self.planner_framework == "saycan":
-                    result = self.evaluate_task_saycan(env, traj_data, r_idx, model_args, planner, save_path, log_prompt=(i==0), train_gt_steps=train_gt_steps)
-                elif self.planner_framework == "LLM+P":
-                    result = self.evaluate_task_pddl(traj_data, r_idx, save_path, self.skillset, env, model_args)
+                    result = self.evaluate_task_saycan(env, traj_data, r_idx, model_args, planner, save_path, log_prompt=False, train_gt_steps=train_gt_steps)
                 elif self.planner_framework == "dag_plan":
-                    result = self.evaluate_task_dag_plan(env, traj_data, r_idx, model_args, planner, save_path, log_prompt=(i==0), train_gt_steps=train_gt_steps)
+                    result = self.evaluate_task_dag_plan(env, traj_data, r_idx, model_args, planner, save_path, log_prompt=False, train_gt_steps=train_gt_steps)
                 elif self.planner_framework == "hpe_plan":
-                    result = self.evaluate_task_hpe_plan(env, traj_data, r_idx, model_args, planner, save_path, log_prompt=(i==0), train_gt_steps=train_gt_steps)
+                    result = self.evaluate_task_hpe_plan(env, traj_data, r_idx, model_args, planner, save_path, log_prompt=False, train_gt_steps=train_gt_steps)
+                # #region agent log
+                _dbg({"location": "evaluate_main.loop", "message": "task_done", "hypothesisId": "H1", "data": {"task_i": i, "success": result.get("success")}})
+                # #endregion
                 results.append(result)
+                status = "success" if result['success'] else "fail"
+                log.info(f"Task {i+1}/{len(tasks)}: {status}")
                 if result['success']:
-                    log_success.info(task)
-                    log_success.info(f"Evaluating ({i+1}/{len(tasks)}): {traj_data['root']}")
+                    log_success.debug(f"{i+1}/{len(tasks)} {traj_data['root']}")
 
             except Exception as e:
                 import traceback
+                # #region agent log
+                _dbg({"location": "evaluate_main.loop", "message": "task_exception", "hypothesisId": "H4", "data": {"task_i": i, "error": repr(e)}})
+                # #endregion
                 traceback.print_exc()
-                log.info("Error: " + repr(e))
+                log.info(f"Task {i+1}/{len(tasks)}: fail (exception: {repr(e)})")
 
+        n_done = len(results)
+        log.info(f"Finished {n_done}/{len(tasks)} tasks.")
         return results
 
     def instruction_organizing(self, traj_data, r_idx):
         # Use config mapper to get data_type from new or old format
         data_type = get_data_type(self.cfg)
-        instruction_text = traj_data['turk_annotations']['anns'][r_idx][f'task_desc{data_type}']
-        memory = traj_data['turk_annotations']['anns'][r_idx][f'memory{data_type}']
+        ann = traj_data['turk_annotations']['anns'][r_idx]
+        # Fallback to raw ALFRED keys when REI-Bench augmented keys are missing
+        instruction_text = ann.get(f'task_desc{data_type}', ann.get('task_desc', ''))
+        memory = ann.get(f'memory{data_type}', ann.get(f'robot_human_memory{data_type}', []))
 
         memory_instruction_text = ""
-        for line in memory:
+        for line in (memory if isinstance(memory, list) else [memory] if memory else []):
             memory_instruction_text = memory_instruction_text + "\n" + "Human previous inquiry(Not Required to Execute):" + line
         memory_instruction_text = memory_instruction_text + "\n" + "Human pending instruction:" + instruction_text.replace("Human: ", "", 1)
         
-        log.info("Task: %s \n" % "Human pending instruction:" + memory_instruction_text.replace("Human: ", "", 1))
-        
         return memory_instruction_text, instruction_text.replace("Human: ", "", 1)
 
-    def evaluate_task_pddl(self, traj_data, r_idx, save_path, skillset, env, model_args):
-        scene_num = traj_data['scene']['scene_num']
-        object_poses = traj_data['scene']['object_poses']
-        dirty_and_empty = traj_data['scene']['dirty_and_empty']
-        object_toggles = traj_data['scene']['object_toggles']
-
-        scene_name = 'FloorPlan%d' % scene_num
-        env.reset(scene_name)
-        env.restore_scene(object_poses, object_toggles, dirty_and_empty)
-
-        env.step(dict(traj_data['scene']['init_action']))
-        env.set_task(traj_data, model_args, reward_type='dense')
-
-        print("right")
-        scene_num = traj_data['scene']['scene_num']
-        object_poses = traj_data['scene']['object_poses']
-        dirty_and_empty = traj_data['scene']['dirty_and_empty']
-        object_toggles = traj_data['scene']['object_toggles']
-
-        ground_truth = traj_data['turk_annotations']['anns'][r_idx][f'high_descs']
-        clear_instruction = traj_data['turk_annotations']['anns'][r_idx][f'task_desc']
-        instruction_text, _ = self.instruction_organizing(traj_data, r_idx)
-
-        success, plan = llmp_planner(instruction_text, self.planner, skillset, self.example_text)
-
-        success = False
-
-        steps = [re.sub(r'^\d+\.\s*', '', line).strip() for line in plan.split(', ') if line.strip()]
-
-        for si, step in enumerate(steps):
-            step_to_execute = step
-            try:
-                action_ret = env.llm_skill_interact(step_to_execute)
-            except Exception as e:
-                log.warning(e)
-        
-        goal_satisfied = env.get_goal_satisfied()
-        log.info('ground truth: ' + str(ground_truth))
-        log.info('target goal: ' + json.dumps(env.task.get_targets()))
-        if goal_satisfied:
-            print("Goal Reached")
-            success = True
-
-
-        log.info('success: ' + str(success))
-
-        result = {'trial': traj_data['task_id'],
-            'type': traj_data['task_type'],
-            'repeat_idx': int(r_idx),
-            'goal_instr': instruction_text,
-            'plan': steps,
-            'success': success}
-        return result
-    
     def evaluate_task_dag_plan(self, env, traj_data, r_idx, model_args, planner, save_path, log_prompt=False, train_gt_steps=None):
-        with open("prompts/dag_prompt.txt", "r", encoding="utf-8") as f:
+        with open(os.path.join(_PROMPTS_DIR, "dag_prompt.txt"), "r", encoding="utf-8") as f:
             dag_query = f.read()
 
         scene_num = traj_data['scene']['scene_num']
@@ -259,7 +215,6 @@ class AlfredEvaluator(Evaluator):
         ground_truth = traj_data['turk_annotations']['anns'][r_idx][f'high_descs']
         clear_instruction = traj_data['turk_annotations']['anns'][r_idx][f'task_desc']
         instruction_text, _ = self.instruction_organizing(traj_data, r_idx)
-        referring_expression = traj_data['turk_annotations']['anns'][r_idx]['reference']
 
         original_instruction = traj_data['turk_annotations']['anns'][r_idx]['task_desc']
         
@@ -287,14 +242,13 @@ class AlfredEvaluator(Evaluator):
                         step = train_gt_steps[traj_data['task_id']][t]
                     prompt = ''
                 else:
-                    step, prompt = planner.plan_dag(dag_query, instruction_text, prev_steps, prev_action_msg, referring_expression)
+                    step, prompt = planner.plan_dag(dag_query, instruction_text, prev_steps, prev_action_msg, None)
                     if step is None:
                         log.info("\tmax step reached")
                         break
 
                 if log_prompt:
                     log.info(prompt)
-                log.info(f'{len(prev_steps) + 1}. {step}')
                 prev_steps.append(step)
 
                 if step in ['done', 'done.', 'done.\n']:
@@ -315,27 +269,21 @@ class AlfredEvaluator(Evaluator):
                 step_num += 1
                 try:
                     action_ret = env.llm_skill_interact(step_to_execute)
-                    print(action_ret)
                     prev_action_msg.append(action_ret['message'])
                 except Exception as e:
                     log.warning(e)
                 imgs.append(env.write_step_on_img(self.cfg.planner.use_predefined_prompt, t+1, action_ret))
 
                 if not action_ret['success']:
-                    print(action_ret['message'])
+                    pass
 
                 t_reward, t_done = env.get_transition_reward()
                 reward += t_reward
                 t += 1
             end = time.perf_counter()
             whole_latency_ms = (end - start) * 1000
-            log.info(f"[Latency] Whole-plan generation time: {whole_latency_ms:.2f} ms")
 
         goal_satisfied = env.get_goal_satisfied()
-        log.info('success: ' + str(goal_satisfied))
-        log.info('ground truth: ' + str(ground_truth))
-        log.info('target goal: ' + json.dumps(env.task.get_targets()))
-        log.info('success: ' + str(goal_satisfied))
         if goal_satisfied:
             success = True
 
@@ -348,13 +296,10 @@ class AlfredEvaluator(Evaluator):
                     'whole_plan_latency_ms': whole_latency_ms,
                     'success': success}
 
-        # save img
-        # self.save_result(log_entry, imgs, save_path)
-
         return log_entry
     
     def evaluate_task_hpe_plan(self, env, traj_data, r_idx, model_args, planner, save_path, log_prompt=False, train_gt_steps=None):
-        with open("prompts/hpe_prompt.txt", "r", encoding="utf-8") as f:
+        with open(os.path.join(_PROMPTS_DIR, "hpe_prompt.txt"), "r", encoding="utf-8") as f:
             hpe_query = f.read()
 
         scene_num = traj_data['scene']['scene_num']
@@ -372,7 +317,6 @@ class AlfredEvaluator(Evaluator):
         ground_truth = traj_data['turk_annotations']['anns'][r_idx][f'high_descs']
         clear_instruction = traj_data['turk_annotations']['anns'][r_idx][f'task_desc']
         instruction_text, last_instruction = self.instruction_organizing(traj_data, r_idx)
-        referring_expression = traj_data['turk_annotations']['anns'][r_idx]['reference']
         
         done, success = False, False
         t = 0
@@ -398,14 +342,13 @@ class AlfredEvaluator(Evaluator):
                         step = train_gt_steps[traj_data['task_id']][t]
                     prompt = ''
                 else:
-                    step, prompt = planner.plan_hpe(hpe_query, instruction_text, last_instruction, prev_steps, prev_action_msg, referring_expression)
+                    step, prompt = planner.plan_hpe(hpe_query, instruction_text, last_instruction, prev_steps, prev_action_msg, None)
                     if step is None:
                         log.info("\tmax step reached")
                         break
 
                 if log_prompt:
                     log.info(prompt)
-                log.info(f'{len(prev_steps) + 1}. {step}')
                 prev_steps.append(step)
 
                 if step in ['done', 'done.', 'done.\n']:
@@ -426,27 +369,21 @@ class AlfredEvaluator(Evaluator):
                 step_num += 1
                 try:
                     action_ret = env.llm_skill_interact(step_to_execute)
-                    print(action_ret)
                     prev_action_msg.append(action_ret['message'])
                 except Exception as e:
                     log.warning(e)
                 imgs.append(env.write_step_on_img(self.cfg.planner.use_predefined_prompt, t+1, action_ret))
 
                 if not action_ret['success']:
-                    print(action_ret['message'])
+                    pass
 
                 t_reward, t_done = env.get_transition_reward()
                 reward += t_reward
                 t += 1
             end = time.perf_counter()
             whole_latency_ms = (end - start) * 1000
-            log.info(f"[Latency] Whole-plan generation time: {whole_latency_ms:.2f} ms")
 
         goal_satisfied = env.get_goal_satisfied()
-        log.info('success: ' + str(goal_satisfied))
-        log.info('ground truth: ' + str(ground_truth))
-        log.info('target goal: ' + json.dumps(env.task.get_targets()))
-        log.info('success: ' + str(goal_satisfied))
         if goal_satisfied:
             success = True
 
@@ -459,11 +396,8 @@ class AlfredEvaluator(Evaluator):
                     'whole_plan_latency_ms': whole_latency_ms,
                     'success': success}
 
-        # save img
-        # self.save_result(log_entry, imgs, save_path)
-
         return log_entry
-
+    
     def evaluate_task_saycan(self, env, traj_data, r_idx, model_args, planner, save_path, log_prompt=False, train_gt_steps=None):
         scene_num = traj_data['scene']['scene_num']
         object_poses = traj_data['scene']['object_poses']
@@ -480,7 +414,6 @@ class AlfredEvaluator(Evaluator):
         ground_truth = traj_data['turk_annotations']['anns'][r_idx][f'high_descs']
         clear_instruction = traj_data['turk_annotations']['anns'][r_idx][f'task_desc']
         instruction_text, _ = self.instruction_organizing(traj_data, r_idx)
-        referring_expression = traj_data['turk_annotations']['anns'][r_idx]['reference']
 
         original_instruction = traj_data['turk_annotations']['anns'][r_idx]['task_desc']
         
@@ -508,14 +441,16 @@ class AlfredEvaluator(Evaluator):
                         step = train_gt_steps[traj_data['task_id']][t]
                     prompt = ''
                 else:
-                    step, prompt = planner.plan_step_by_step(instruction_text, prev_steps, prev_action_msg, referring_expression)
+                    # #region agent log
+                    _dbg({"location": "evaluate_task_saycan", "message": "before_plan_step", "hypothesisId": "H5", "data": {"step_num": step_num, "t": t}})
+                    # #endregion
+                    step, prompt = planner.plan_step_by_step(instruction_text, prev_steps, prev_action_msg, None)
                     if step is None:
                         log.info("\tmax step reached")
                         break
 
                 if log_prompt:
                     log.info(prompt)
-                log.info(f'{len(prev_steps) + 1}. {step}')
                 prev_steps.append(step)
 
                 if step in ['done', 'done.', 'done.\n']:
@@ -536,21 +471,21 @@ class AlfredEvaluator(Evaluator):
                 step_num += 1
                 try:
                     action_ret = env.llm_skill_interact(step_to_execute)
-                    print(action_ret)
                     prev_action_msg.append(action_ret['message'])
                 except Exception as e:
                     log.warning(e)
+                    action_ret = {'success': False, 'message': str(e)}
+                    prev_action_msg.append(action_ret['message'])
                 imgs.append(env.write_step_on_img(self.cfg.planner.use_predefined_prompt, t+1, action_ret))
 
                 if not action_ret['success']:
-                    print(action_ret['message'])
+                    pass
 
                 t_reward, t_done = env.get_transition_reward()
                 reward += t_reward
                 t += 1
             end = time.perf_counter()
             whole_latency_ms = (end - start) * 1000
-            log.info(f"[Latency] Whole-plan generation time: {whole_latency_ms:.2f} ms")
         else:
             replan_times = 0
             goal_satisfied = False
@@ -564,8 +499,6 @@ class AlfredEvaluator(Evaluator):
                     log.info(prompt)
 
                 for si, step in enumerate(steps):
-                    log.info(f'{si + 1}. {step}')
-
                     if step in ['done', 'done.', 'done.\n']:
                         done = True
                         break
@@ -575,26 +508,22 @@ class AlfredEvaluator(Evaluator):
                         action_ret = env.llm_skill_interact(step_to_execute)
                     except Exception as e:
                         log.warning(e)
+                        action_ret = {'success': False, 'message': str(e)}
                     imgs.append(env.write_step_on_img(self.cfg.planner.use_predefined_prompt, t + 1, action_ret))
                     prev_action_msg.append(action_ret['message'])
                     if not action_ret['success']:
-                        print(action_ret['message'])
+                        pass
 
                     t_reward, t_done = env.get_transition_reward()
                     reward += t_reward
                     t += 1
                 goal_satisfied = env.get_goal_satisfied()
-                log.info('success: ' + str(goal_satisfied))
                 replan_times += 1
         
         if step_by_step_mode and not 'DeepSeek-R1-Distill' in self.cfg.planner.model_name:
             goal_satisfied = env.get_goal_satisfied()
 
         goal_satisfied = env.get_goal_satisfied()
-        log.info('success: ' + str(goal_satisfied))
-        log.info('ground truth: ' + str(ground_truth))
-        log.info('target goal: ' + json.dumps(env.task.get_targets()))
-        log.info('success: ' + str(goal_satisfied))
         if goal_satisfied:
             success = True
 

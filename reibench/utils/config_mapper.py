@@ -14,7 +14,7 @@ def get_planner_framework(cfg: DictConfig) -> str:
         cfg: Configuration object
         
     Returns:
-        Framework name (saycan, LLM+P, dag_plan, hpe_plan)
+        Framework name (saycan, dag_plan, hpe_plan)
     """
     # New format: framework.planner_framework
     if hasattr(cfg, 'framework') and hasattr(cfg.framework, 'planner_framework'):
@@ -90,58 +90,55 @@ def get_prompting_method(cfg: DictConfig) -> dict:
     return result
 
 
+# Readable data_type labels (config) -> internal keys (JSON: task_desc1-1, memory1-1, etc.)
+# Format: context-RE. Context: standard(1), noised(2), short(3). RE: explicit(1), mixed(2), implicit(3)
+DATA_TYPE_READABLE_TO_INTERNAL = {
+    "standard-explicit": "1-1", "standard-mixed": "1-2", "standard-implicit": "1-3",
+    "noised-explicit": "2-1", "noised-mixed": "2-2", "noised-implicit": "2-3",
+    "short-explicit": "3-1", "short-mixed": "3-2", "short-implicit": "3-3",
+}
+
+
+def _data_type_to_internal(value: str) -> str:
+    """Convert config data_type (readable or legacy 1-1) to internal key for JSON."""
+    if value in DATA_TYPE_READABLE_TO_INTERNAL:
+        return DATA_TYPE_READABLE_TO_INTERNAL[value]
+    return value
+
+
 def get_data_type(cfg: DictConfig) -> str:
     """
-    Get data type from new or old config format.
-    Converts re_level + context_type to 'X-Y' format.
-    
-    Args:
-        cfg: Configuration object
-        
-    Returns:
-        Data type string (e.g., '1-1', '2-3')
+    Get data type from config and return internal format for JSON keys (task_desc*, memory*).
+    Accepts readable labels (e.g. standard-explicit) or legacy (1-1).
     """
+    raw = None
     # New format: task_difficulty.*
     if hasattr(cfg, 'task_difficulty'):
         if hasattr(cfg.task_difficulty, 'data_type'):
-            return cfg.task_difficulty.data_type
-        
-        # Convert re_level + context_type to data_type
-        if hasattr(cfg.task_difficulty, 're_level') and hasattr(cfg.task_difficulty, 'context_type'):
+            raw = cfg.task_difficulty.data_type
+        elif hasattr(cfg.task_difficulty, 're_level') and hasattr(cfg.task_difficulty, 'context_type'):
             re_level_map = {'explicit': '1', 'mixed': '2', 'implicit': '3'}
             context_type_map = {'standard': '1', 'noised': '2', 'short': '3'}
-            
             re_level = cfg.task_difficulty.re_level
             context_type = cfg.task_difficulty.context_type
-            
             if re_level in re_level_map and context_type in context_type_map:
-                return f"{re_level_map[re_level]}-{context_type_map[context_type]}"
-    
+                raw = f"{context_type_map[context_type]}-{re_level_map[re_level]}"
     # Old format: data_type
-    if hasattr(cfg, 'data_type') and cfg.data_type is not None:
-        return str(cfg.data_type)
-    
-    # Default
-    return "1-1"
+    if raw is None and hasattr(cfg, 'data_type') and cfg.data_type is not None:
+        raw = str(cfg.data_type)
+    if raw is None:
+        raw = "1-1"
+    return _data_type_to_internal(raw)
 
 
 def get_data_types(cfg: DictConfig) -> list:
     """
-    Get list of data types from config.
-    
-    Args:
-        cfg: Configuration object
-        
-    Returns:
-        List of data type strings
+    Get list of data types from config (readable or legacy). Returned as-is for cfg.data_type / display.
+    Use get_data_type(cfg) when indexing JSON (task_desc*, memory*).
     """
-    # Old format: data_types list
     if hasattr(cfg, 'data_types') and cfg.data_types is not None:
-        return cfg.data_types
-    
-    # If only single data_type, convert to list
-    data_type = get_data_type(cfg)
-    return [data_type]
+        return list(cfg.data_types)
+    return [get_data_type(cfg)]
 
 
 def convert_re_level_to_number(re_level: str) -> int:

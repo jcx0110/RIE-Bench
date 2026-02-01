@@ -12,7 +12,6 @@ sys.path.insert(0, './alfred')
 
 from PIL import Image, ImageDraw, ImageFont
 
-from alfred.data.preprocess import Dataset
 from reibench.planners.alfred_planner import AlfredTaskPlanner
 from reibench.envs.alfred.thor_connector import ThorConnector
 from reibench.envs.alfred.utils import dotdict, load_task_json
@@ -51,7 +50,7 @@ class AlfredEvaluator(Evaluator):
         log.info(OmegaConf.to_yaml(cfg))
         global splits
 
-        args_dict = {'data': 'alfred/data/json_2.1.0 copy', 'pframe': 300, 'fast_epoch': False,
+        args_dict = {'data': 'alfred/data/json_2.1.0', 'pframe': 300, 'fast_epoch': False,
                     'use_templated_goals': False, 'dout': 'exp/model', 'pp_folder': 'pp',
                     'reward_config': 'alfred/models/config/rewards.json', 'max_steps': 1000}
         
@@ -64,6 +63,13 @@ class AlfredEvaluator(Evaluator):
         number_of_dirs = len(list(os.listdir(args_dict['data'])))
         do_preprocessing = number_of_dirs < 50 
         if do_preprocessing:
+            try:
+                from alfred.data.preprocess import Dataset
+            except ModuleNotFoundError:
+                raise ModuleNotFoundError(
+                    "Preprocessing requested (data dirs < 50) but alfred.data.preprocess not found. "
+                    "Add ALFRED data module (alfred/data/preprocess.py from askforalfred/alfred) or use a dataset with >= 50 task dirs to skip preprocessing."
+                ) from None
             log.info("\nPreprocessing dataset... Do this once as required:")
             vocab = None
             dataset = Dataset(dotdict(args_dict), vocab)
@@ -112,19 +118,13 @@ class AlfredEvaluator(Evaluator):
                 train_gt_steps[ex['task id']] = ex['NL steps']
 
         for i, task in enumerate(tqdm(tasks)):
-            log.info(f"repeat_idx:{task['repeat_idx']} task:{task['task']}")
             traj_data = load_task_json(task, args_dict["data"])
             r_idx = task['repeat_idx']
             try:
-                log.info(f"repeat_idx:{task['repeat_idx']} task:{task['task']}")
-                traj_data = load_task_json(task, args_dict["data"])
-                r_idx = task['repeat_idx']
-                log.info(f"Evaluating ({i+1}/{len(tasks)}): {traj_data['root']}")
                 result = self.evaluate_task_human(env, traj_data, r_idx, model_args, save_path, self.skillset, log_prompt=(i==0), train_gt_steps=train_gt_steps)
                 results.append(result)
                 if result['success']:
-                    log_success.info(task)
-                    log_success.info(f"Evaluating ({i+1}/{len(tasks)}): {traj_data['root']}")
+                    log_success.debug(f"{i+1}/{len(tasks)} {traj_data['root']}")
 
             except Exception as e:
                 import traceback
@@ -223,7 +223,6 @@ class AlfredEvaluator(Evaluator):
         ground_truth = traj_data['turk_annotations']['anns'][r_idx][f'high_descs']
         clear_instruction = traj_data['turk_annotations']['anns'][r_idx][f'task_desc']
         instruction_text = self.instruction_organizing(traj_data, r_idx)
-        referring_expression = traj_data['turk_annotations']['anns'][r_idx]['reference']
 
         original_instruction = traj_data['turk_annotations']['anns'][r_idx]['task_desc']
         

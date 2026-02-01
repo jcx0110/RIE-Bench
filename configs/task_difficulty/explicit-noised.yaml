@@ -1,5 +1,5 @@
 # @package _global_
-name: explicit-noised
+task_difficulty_name: explicit-noised
 re_level: explicit
 context_type: noised
 data_type: "1-2"

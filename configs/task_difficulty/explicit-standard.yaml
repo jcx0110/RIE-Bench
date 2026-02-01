@@ -1,5 +1,5 @@
 # @package _global_
-name: explicit-standard
+task_difficulty_name: explicit-standard
 re_level: explicit
 context_type: standard
 data_type: "1-1"

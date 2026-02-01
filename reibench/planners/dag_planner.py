@@ -8,36 +8,27 @@ from typing import Dict, List, Any
 def sanitize_dag_text(raw: str) -> str:
     """Make LLM DAG output more parse-friendly.
 
-    - Keep only the LAST 'nodes:' block (因为 LLM 有时会重复输出多份 DAG)
+    - Keep only the LAST 'nodes:' block
     - Strip everything before that
     - Strip trailing comments starting with '#'
-    - Drop明显是空行或纯自然语言垃圾的行（非常宽松）
+    - Drop empty or junk lines
     """
     lines = raw.splitlines()
 
-    # 找到所有 'nodes:' 出现位置
     nodes_indices = [i for i, l in enumerate(lines) if l.strip().startswith("nodes:")]
     if not nodes_indices:
-        # 没有 DAG，就原样返回（后面会解析为空）
         return raw
 
-    # 只保留最后一份 DAG（通常是模型最终版本）
     start_idx = nodes_indices[-1]
     lines = lines[start_idx:]
 
     cleaned = []
     for line in lines:
-        # 去掉行尾注释：# 后面的内容
         if "#" in line:
             line = line.split("#", 1)[0]
-
-        # 去掉右侧多余空白
         line = line.rstrip()
-
-        # 丢掉纯空行
         if line.strip() == "":
             continue
-
         cleaned.append(line)
 
     return "\n".join(cleaned)
@@ -66,30 +57,24 @@ def parse_dag_text_robust(dag_text: str) -> Dict[int, Dict[str, Any]]:
         node_match = node_re.match(line)
         if node_match:
             current_id = int(node_match.group(1))
-            # 如果重复 node_id，新的会覆盖旧的（LLM 有时会重写 DAG）
             nodes[current_id] = {"edge": []}
             continue
 
         if current_id is None:
-            # 还没看到 node_x:，跳过
             continue
 
-        # type
         t = type_re.match(line)
         if t:
             nodes[current_id]["type"] = t.group(1).strip()
             continue
 
-        # name（只读取第一行；多行 name 可在这里额外扩展）
         n = name_re.match(line)
         if n:
             name_val = n.group(1).strip()
-            # 简单处理多行 name：如果下一行缩进且不是关键字段，则拼接
             j = i + 1
             extra_parts = []
             while j < len(lines):
                 next_line = lines[j]
-                # 以空格起始且不包含 node_/name/type/arm_num/edge
                 if (
                     next_line.startswith(" ")
                     or next_line.startswith("\t")
@@ -107,7 +92,6 @@ def parse_dag_text_robust(dag_text: str) -> Dict[int, Dict[str, Any]]:
             nodes[current_id]["name"] = name_val
             continue
 
-        # arm_num
         a = arm_re.match(line)
         if a:
             try:
@@ -123,7 +107,6 @@ def parse_dag_text_robust(dag_text: str) -> Dict[int, Dict[str, Any]]:
             if edge_str == "":
                 nodes[current_id]["edge"] = []
             else:
-                # tokens 可能包含空格或奇怪字符，这里只保留数字
                 tokens = re.split(r"[,\s]+", edge_str)
                 edges = []
                 for tok in tokens:
@@ -133,18 +116,15 @@ def parse_dag_text_robust(dag_text: str) -> Dict[int, Dict[str, Any]]:
                 nodes[current_id]["edge"] = edges
             continue
 
-    # 清理：丢掉没有 name 的节点（LLM 有可能输出残缺 node_x）
     valid_nodes = {
         nid: info for nid, info in nodes.items()
         if "name" in info and isinstance(info["name"], str)
     }
 
-    # 确保每个 node 至少有 edge 字段
     for nid, info in valid_nodes.items():
         if "edge" not in info or not isinstance(info["edge"], list):
             info["edge"] = []
 
-    # 过滤 edge 中指向不存在的节点
     existing_ids = set(valid_nodes.keys())
     for nid, info in valid_nodes.items():
         cleaned_edges = [e for e in info["edge"] if e in existing_ids and e != nid]
@@ -171,11 +151,9 @@ def dag_to_plan(nodes: Dict[int, Dict[str, Any]]) -> List[str]:
     # Build edges
     for i, info in nodes.items():
         for pre in info.get("edge", []):
-            # pre 已经过滤掉不存在节点，这里可以放心使用
             graph[pre].append(i)
             indegree[i] += 1
 
-    # Kahn 拓扑排序
     queue = [i for i in nodes if indegree[i] == 0]
     queue.sort()
 
@@ -271,7 +249,6 @@ nodes:
         name: task complete
         arm_num: 0
         edge: [2, 4, 11]  # final node
-# 以下是 LLM 可能乱输出的垃圾，不应该影响解析
 This DAG describes how to clean the table and store items.
 nodes:
     node_1:

@@ -22,7 +22,7 @@ def measure_tokens_and_latency(self, prompt, output_text):
         input_ids = self.tokenizer(prompt, return_tensors="pt")["input_ids"].to(self.device)
         input_tokens = input_ids.shape[-1]
     else:
-        input_tokens = -1  # 超大模型或OpenAI自动处理
+        input_tokens = -1
 
     # output tokens
     if self.tokenizer is not None:
@@ -66,7 +66,6 @@ class TaskPlanner:
         self.tokenizer = None
 
         if self.planner_framework == "saycan" or self.planner_framework == "dag_plan" or self.planner_framework == "hpe_plan":
-            print(f"Loading LLM and tokenizer: {self.model_name}")
             model_args = {'pretrained_model_name_or_path': self.model_name, 'trust_remote_code': True,
                         'torch_dtype': torch.float16}
             use_accelerate = model_config.get('use_accelerate_device_map', 
@@ -103,8 +102,6 @@ class TaskPlanner:
                     elif 'gemma' in self.model_name:
                         self.planner_model = models.Transformers(self.model_name, self.tokenizer, device=self.device, torch_dtype=torch.bfloat16)
 
-                    print("输出所在设备:", self.planner_model.device if isinstance(self.planner_model, torch.Tensor) else "输出不是 tensor")
-
                 logging.getLogger("guidance").setLevel(logging.WARNING)
 
             else:
@@ -119,7 +116,6 @@ class TaskPlanner:
                     self.model = self.model.to(self.device)
                 self.model.eval()
                 self.tokenizer.pad_token_id = 0
-                print(f"Loading done\n")
 
             self.prompt = self.init_prompt(cfg)
 
@@ -167,16 +163,13 @@ class TaskPlanner:
         scores = {}
         batch_skill_set_list = [skill_set[chunk:chunk + self.scoring_batch_size] for chunk in
                                 range(0, len(skill_set), self.scoring_batch_size)]
-        print("skill_set", skill_set, len(skill_set), type(skill_set), "done")
         torch.cuda.empty_cache()
         if self.scoring_mode == 'guidance':
             if "meta-llama" in self.model_name or 'Qwen2.5' in self.model_name or 'mistralai' in self.model_name or 'gemma' in self.model_name or 'deepseek' in self.model_name:
                 out = self.planner_model + prompt + select(skill_set, name='best')
-                print('best', out)
                 beststep = out['best']
             elif "gpt" in self.model_name:
                 out = self.planner_model + prompt + select(skill_set, name='best')
-                print('best', out)
                 beststep = out['best']
             else:
                 out = self.guidance_program(prompt=prompt, candidates=skill_set)
@@ -188,7 +181,6 @@ class TaskPlanner:
     def plan_whole(self, query, prev_steps=(), prev_msgs=()):
         step_seq = []
         skill_set_size_seq = []
-        print(f"Input query: {query}")
 
         prompt_lines = self.prompt.split('\n')
         prompt_examples = prompt_lines[2:]
@@ -232,19 +224,13 @@ class TaskPlanner:
                 Your previous plan was unsuccessful. Here are your plan and the reasons for the failure {previous_plan}.
                 List the actions with comma seperator again.
                 """
-        print("previous_plan=", previous_plan)
-        print('skill set=', skills_text)
         with assistant():
             lm += gen("answer", temperature=0)
 
         answer = lm['answer']
-        print('answer:', answer)
-
         answer = answer.replace('Robot: ', '')
         actions = [action.strip(' 1234567890.') for action in answer.split(',')]
         step_seq = actions
-
-        print('step_seq', step_seq)
         return step_seq, skill_set_size_seq
 
 
@@ -255,7 +241,6 @@ class TaskPlanner:
         prompt = self.prompt + f'{query.strip()}\nRobot: 1. '
 
         if self.AP == True:
-            print("use the aware_hint: ", self.AP)
             prompt = self.prompt + f'Robot: {self.AP}\n' + f'{query.strip()}\nRobot: 1. '
         elif self.TOCC == True:
             if len(prev_steps) == 0: 
@@ -267,8 +252,16 @@ class TaskPlanner:
                     Previous context:\n
                     {query.strip()}\n
                     Please make the `Human Pending Instruction" clear:"""
-                prompt_reference = self.planner_model + f"{TOCC_hint}\n" + gen(stop='.')
-                prompt_references = str(prompt_reference).split('\n')
+                try:
+                    prompt_reference = self.planner_model + f"{TOCC_hint}\n" + gen(stop='.')
+                    prompt_references = str(prompt_reference).split('\n')
+                except AssertionError:
+                    raw = self._generate_fallback(f"{TOCC_hint}\n", max_new_tokens=150)
+                    if raw is None:
+                        raise
+                    if '.' in raw:
+                        raw = raw.split('.', 1)[0] + '.'
+                    prompt_references = raw.split('\n')
                 self.prompt_reference = prompt_references[-1].strip()
                 with open("output.txt", "a") as f:
                     f.write(f"{str(self.prompt_reference)}\n")
@@ -283,8 +276,16 @@ class TaskPlanner:
                 {query.strip()}\n\
                 Please answer:\
                 What is the object referred to by the referring expression in the ``Human Pending Instruction"?"""
-                prompt_reference = self.planner_model + f"{cot_hint}\n" + gen(stop=".")
-                prompt_reference = str(prompt_reference).split('\n')
+                try:
+                    prompt_reference = self.planner_model + f"{cot_hint}\n" + gen(stop=".")
+                    prompt_reference = str(prompt_reference).split('\n')
+                except AssertionError:
+                    raw = self._generate_fallback(f"{cot_hint}\n", max_new_tokens=150)
+                    if raw is None:
+                        raise
+                    if '.' in raw:
+                        raw = raw.split('.', 1)[0] + '.'
+                    prompt_reference = raw.split('\n')
                 self.prompt_reference = prompt_reference[-1] 
                 prompt = self.prompt + f'{query.strip()}\n' + f"Hint: {self.prompt_reference}\nRobot: 1. "
             else: 
@@ -298,11 +299,25 @@ class TaskPlanner:
 
         
         best_step = self.score(prompt, self.skill_set)
-        best_step = best_step.strip() 
-        input_tok, output_tok, total_tok = self.count_tokens(prompt, best_step)
-        print("[TOKENS][step_by_step] in:", input_tok, "out:", output_tok, "total:", total_tok)
-
+        best_step = best_step.strip()
         return best_step, prompt
+
+    def _generate_fallback(self, prompt_text, max_new_tokens=200):
+        """Fallback when guidance raises AssertionError (token_byte_positions vs last_pos with some tokenizers e.g. Llama)."""
+        if not (hasattr(self, 'planner_model') and hasattr(self.planner_model, 'model_obj') and self.tokenizer is not None):
+            return None
+        model = self.planner_model.model_obj
+        inputs = self.tokenizer(prompt_text, return_tensors="pt")
+        inputs = {k: v.to(model.device) for k, v in inputs.items()}
+        gen_kw = dict(max_new_tokens=max_new_tokens, do_sample=True, temperature=0.7)
+        if getattr(self.tokenizer, 'pad_token_id', None) is not None:
+            gen_kw['pad_token_id'] = self.tokenizer.pad_token_id
+        elif getattr(self.tokenizer, 'eos_token_id', None) is not None:
+            gen_kw['pad_token_id'] = self.tokenizer.eos_token_id
+        out = model.generate(**inputs, **gen_kw)
+        input_len = inputs["input_ids"].shape[1]
+        generated_ids = out[0][input_len:]
+        return self.tokenizer.decode(generated_ids, skip_special_tokens=True).strip()
     
     def plan_dag(self, dag_query, query, prev_steps=(), prev_msgs=(), wrong_steps=(), wrong_action_msg=(), reference=None):
         if len(prev_steps) >= self.max_steps:
@@ -312,10 +327,13 @@ class TaskPlanner:
             pattern = r"\[instruction\]"
             dag_query = re.sub(pattern, query, dag_query, flags=re.IGNORECASE)
             # dag_query = dag_query + "Please ended with \" . \" "
-            dag_hint = self.planner_model + dag_query + gen(max_tokens=200)
-            dag_hint = str(dag_hint)[len(dag_query):]
-            print(dag_hint)
-            # import pdb;pdb.set_trace()
+            try:
+                dag_hint = self.planner_model + dag_query + gen(max_tokens=200)
+                dag_hint = str(dag_hint)[len(dag_query):]
+            except AssertionError:
+                dag_hint = self._generate_fallback(dag_query, max_new_tokens=200)
+                if dag_hint is None:
+                    raise
             from dag_plan.dag2plan import dag_text_to_plan
             try:
                 self.hint = dag_text_to_plan(dag_hint)
@@ -334,10 +352,7 @@ class TaskPlanner:
 
         
         best_step = self.score(prompt, self.skill_set)
-        best_step = best_step.strip() 
-        input_tok, output_tok, total_tok = self.count_tokens(prompt, best_step)
-        print("[TOKENS][step_by_step] in:", input_tok, "out:", output_tok, "total:", total_tok)
-
+        best_step = best_step.strip()
         return best_step, prompt
 
     def plan_hpe(self, hpe_query, context, instruction, prev_steps=(), prev_msgs=(), wrong_steps=(), wrong_action_msg=(), reference=None):
@@ -348,15 +363,22 @@ class TaskPlanner:
             pattern = r"\[instruction\]"
             hpe_query = re.sub(pattern, context, hpe_query, flags=re.IGNORECASE)
             # dag_query = dag_query + "Please ended with \" . \" "
-            memory_bank = self.planner_model + hpe_query + gen(max_tokens=100)
-            memory_bank = str(memory_bank)[len(hpe_query):]
-            print(memory_bank)
+            try:
+                memory_bank = self.planner_model + hpe_query + gen(max_tokens=100)
+                memory_bank = str(memory_bank)[len(hpe_query):]
+            except AssertionError:
+                memory_bank = self._generate_fallback(hpe_query, max_new_tokens=100)
+                if memory_bank is None:
+                    raise
             hpe_query2 = "Please extract only the information from the Memory Bank that is most relevant and useful for accomplishing the task.Ignore any unrelated or redundant descriptions. Especially regarding the unclear parts of the instructions\n"
             hpe_query2 =  hpe_query2 + "Memory Bank:" + memory_bank + "Instruction:" + instruction
-            hpe_hint = self.planner_model + hpe_query2 + gen(max_tokens=200)
-            hpe_hint = str(hpe_hint)[len(hpe_query2):]
-            print(hpe_hint)
-            # import pdb;pdb.set_trace()
+            try:
+                hpe_hint = self.planner_model + hpe_query2 + gen(max_tokens=200)
+                hpe_hint = str(hpe_hint)[len(hpe_query2):]
+            except AssertionError:
+                hpe_hint = self._generate_fallback(hpe_query2, max_new_tokens=200)
+                if hpe_hint is None:
+                    raise
             self.hint = hpe_hint
             self.hint = str(self.hint)
         
@@ -371,10 +393,7 @@ class TaskPlanner:
 
         
         best_step = self.score(prompt, self.skill_set)
-        best_step = best_step.strip() 
-        input_tok, output_tok, total_tok = self.count_tokens(prompt, best_step)
-        print("[TOKENS][step_by_step] in:", input_tok, "out:", output_tok, "total:", total_tok)
-
+        best_step = best_step.strip()
         return best_step, prompt
 
     def duplicate_past_key_values(self, past_key_values, batch_size):

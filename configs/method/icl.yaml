@@ -1,7 +1,0 @@
-# @package _global_
-name: icl
-aware_hint: False
-COT: False
-TOCC: False
-ICL: True
-

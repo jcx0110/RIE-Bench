@@ -43,8 +43,6 @@ class ThorEnv(Controller):
         self.cooled_reward = False
         self.reopen_reward = False
 
-        print("ThorEnv started.")
-
     def reset(self, scene_name_or_num,
               grid_size=constants.AGENT_STEP_SIZE / constants.RECORD_SMOOTHING_FACTOR,
               camera_y=constants.CAMERA_HEIGHT_OFFSET,
@@ -56,8 +54,6 @@ class ThorEnv(Controller):
         '''
         reset scene and task states
         '''
-        print("Resetting ThorEnv")
-
         if type(scene_name_or_num) == str:
             scene_name = scene_name_or_num
         else:
