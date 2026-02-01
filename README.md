@@ -1,30 +1,15 @@
-# REI-Bench: Can Embodied Agents Understand Vague Human Instructions in Task Planning?
+# [REI-Bench: Can Embodied Agents Understand Vague Human Instructions in Task Planning?](https://jcx0110.github.io/REI-Bench-web/)
 
-This repository is the **official evaluation codebase** for **REI-Bench**, from the paper **REI-Bench: Can Embodied Agents Understand Vague Human Instructions in Task Planning?** REI-Bench is an evaluation benchmark for embodied task planners under **referential and coreferential vagueness** in natural language instructions.
-
-**Project webpage:** [https://jcx0110.github.io/REI-Bench-web/](https://jcx0110.github.io/REI-Bench-web/)
+This repository is the **official evaluation codebase** for **REI-Bench**, from the paper [**REI-Bench: Can Embodied Agents Understand Vague Human Instructions in Task Planning?**](https://jcx0110.github.io/REI-Bench-web/) REI-Bench is an evaluation benchmark for embodied task planners under **referential and coreferential vagueness** in natural language instructions.
 
 ## 🤖 Authors
 
-**Chenxi Jiang**, **Chuhao Zhou**, **Jianfei Yang**  
-MARS Lab, Nanyang Technological University (NTU)
+**Chenxi Jiang**, **Chuhao Zhou**, [**Jianfei Yang**](https://marsyang.site/)  
+[MARS Lab](https://marslab.tech/), Nanyang Technological University (NTU)
 
 ## 🧭 Introduction
 
-We introduce **REI-Bench**, a benchmark for assessing whether embodied agents can interpret **vague, underspecified, or coreferential** human instructions in task planning. In real-world settings, users often give instructions like "put the drink in the fridge" or "turn off the electronic device" without specifying *which* drink or device. This **referential vagueness** is a fundamental bottleneck: the agent must ground language to the right objects and then plan and execute. Existing benchmarks (e.g., ALFRED-style benchmarks) largely use clear, unambiguous instructions and thus do not evaluate this capability. REI-Bench fills this gap by providing a controlled benchmark where instruction vagueness is systematically varied, enabling rigorous evaluation and method development.
-
-## ✨ Key Contributions
-
-- **REI-Bench design**: A benchmark that evaluates instruction understanding (grounding + planning) under referential and coreferential vagueness, rather than perception or low-level control alone.
-- **Multi-level referential vagueness**: A formal definition of **9 levels** of referential vagueness, combining **3 referential levels** (explicit, mixed, implicit) with **3 context types** (standard, noised, short).
-- **Evaluation of LLM-based planners**: Systematic evaluation of multiple LLMs and planning frameworks (e.g., SayCan, LLM+P, DAG-based planning) across these vagueness levels.
-- **TOCC (Task-Oriented Cognitive Control)**: A method that resolves vague referring expressions before planning, interfacing with existing LLM planners to improve robustness under ambiguous instructions.
-
-## 📦 REI-Bench Overview
-
-- **What REI stands for**: **R**eferential **E**mbodied **I**nstruction benchmark — focusing on *referential* understanding of instructions in embodied task planning.
-- **Task format**: Given a **natural language instruction** (possibly vague), the agent must (1) **ground** the instruction to concrete objects and goals in the environment, (2) **plan** a sequence of actions, and (3) **execute** in simulation (e.g., ALFRED/AI2-THOR). REI-Bench evaluates the full pipeline with emphasis on instruction understanding.
-- **What makes REI-Bench different**: Prior datasets assume clear, unambiguous instructions. REI-Bench explicitly introduces and controls referential and coreferential vagueness (e.g., "the cup," "electronic devices," "beverages") and varies context length and noise, so that progress can be measured on *understanding vague instructions* rather than only on perception or execution.
+We introduce **REI-Bench**, a benchmark for assessing whether embodied agents can interpret **vague, underspecified, or coreferential** human instructions in task planning. In real-world settings, users often give instructions like "put the drink in the fridge" or "turn off the electronic device" without specifying *which* drink or device. This **referential vagueness** is a fundamental bottleneck: the agent must ground language to the right objects and then plan and execute. Existing benchmarks (e.g., ALFRED) largely use clear, unambiguous instructions and thus do not evaluate this capability. REI-Bench fills this gap by providing a controlled benchmark where instruction vagueness is systematically varied, enabling rigorous evaluation and method development.
 
 ## ⚙️ Requirements
 
@@ -36,16 +21,9 @@ We introduce **REI-Bench**, a benchmark for assessing whether embodied agents ca
 
 ```bash
 conda env create -f requriements.yaml
-conda activate chenxi_lotabench
+conda activate reibench
 ```
 
-Or install with pip in your own environment (PyTorch first from [pytorch.org](https://pytorch.org/get-started/locally/), then):
-
-```bash
-pip install transformers hydra-core omegaconf guidance ai2thor accelerate
-```
-
-For ALFRED submodule dependencies, see `alfred/requirements.txt`.
 
 ## 📂 Evaluation Data
 
