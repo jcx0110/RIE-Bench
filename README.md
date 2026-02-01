@@ -58,7 +58,7 @@ From the project root:
 python scripts/evaluate.py
 ```
 
-Override options via Hydra, e.g. `python scripts/evaluate.py method=tocc task_difficulty=explicit-standard`.
+Override options via Hydra, e.g. `python scripts/evaluate.py task_difficulty=explicit-standard`.
 
 Without a display (e.g. headless server), use `./scripts/run_evaluate_with_xvfb.sh` (you can append overrides). If you hit GLX errors, install `xvfb libgl1-mesa-glx libgl1-mesa-dri` or use [ai2thor-docker](https://github.com/allenai/ai2thor-docker).
 
