@@ -36,6 +36,20 @@ sh data/raw/alfred/download_data.sh json
 
 Output is `data/raw/alfred/json_2.1.0`. Point config `split` and data paths to it (and e.g. `data/raw/alfred/splits/` for splits).
 
+**REI-Bench splits (one-time)**
+
+After downloading ALFRED data and placing the source split file (with REI-Bench fields), run once from the project root to generate `data/rei_bench/splits/rei_bench.json`:
+
+```bash
+python data/rei_bench/splits/prepare_rei_bench_splits.py
+```
+
+If your source split file is elsewhere, specify it:
+
+```bash
+python data/rei_bench/splits/prepare_rei_bench_splits.py --input /path/to/source_split.json
+```
+
 ## Run
 
 From the project root:
@@ -62,3 +76,8 @@ If you use REI-Bench or TOCC in your work, please cite:
   year={2025}
   }
 ```
+
+## Acknowledgement
+
+We thank the [ALFRED](https://askforalfred.com/) team for the benchmark and data, [LoTa-Bench](https://choi-jaewoo.github.io/LoTa-Bench/) for the task-planning evaluation framework, and [AI2-THOR](https://github.com/allenai/ai2thor) for the simulation environment.
+
