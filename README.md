@@ -69,6 +69,15 @@ Without a display (e.g. headless server), use `./scripts/run_evaluate_with_xvfb.
 If you use REI-Bench or TOCC in your work, please cite:
 
 ```bibtex
+  @inproceedings{jiang2026reibench,
+    title={REI-Bench: Can Embodied Agents Understand Vague Human Instructions in Task Planning?},
+    author={Jiang, Chenxi and Zhou, Chuhao and Yang, Jianfei},
+    booktitle={The Fourteenth International Conference on Learning Representations},
+    year={2026},
+    month={April},
+    url={https://openreview.net/forum?id=YOUR_PAPER_ID}
+  }
+  
   @article{jiang2025rei,
   title={REI-Bench: Can Embodied Agents Understand Vague Human Instructions in Task Planning?},
   author={Jiang, Chenxi and Zhou, Chuhao and Yang, Jianfei},
