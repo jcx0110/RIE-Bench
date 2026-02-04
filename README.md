@@ -62,6 +62,8 @@ Override options via Hydra, e.g. `python scripts/evaluate.py task_difficulty=exp
 
 Without a display (e.g. headless server), use `./scripts/run_evaluate_with_xvfb.sh` (you can append overrides). If you hit GLX errors, install `xvfb libgl1-mesa-glx libgl1-mesa-dri` or use [ai2thor-docker](https://github.com/allenai/ai2thor-docker).
 
+Note: This repository is under active development. If you encounter issues with environment setup, please open an issue.Note: This repository is under active development. If you encounter issues with environment setup, please open an issue.
+
 
 
 ## 📜 Citation
